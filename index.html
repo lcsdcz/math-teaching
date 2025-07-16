@@ -979,8 +979,6 @@ function drawSegments() {
 
 function drawCircles() {
   ctx.save();
-  ctx.strokeStyle = '#27ae60';
-  ctx.lineWidth = 2;
   circles.forEach((c, idx) => {
     // 计算参数化属性
     let x, y, r;
@@ -999,11 +997,16 @@ function drawCircles() {
       y = c.y;
       r = c.r;
     }
-    
     ctx.beginPath();
     ctx.arc(toCanvasX(x), toCanvasY(y), Math.abs(r)*scale, 0, 2*Math.PI);
+    if(selectedCircleIdx === idx) {
+      ctx.strokeStyle = '#f90';
+      ctx.lineWidth = 4;
+    } else {
+      ctx.strokeStyle = '#27ae60';
+      ctx.lineWidth = 2;
+    }
     ctx.stroke();
-    
     // 更新圆的实际属性
     c.x = x;
     c.y = y;
@@ -1058,6 +1061,7 @@ function drawFunctions() {
     try {
       let xMin = toMathX(0), xMax = toMathX(width);
       let step = Math.max(0.01, (xMax-xMin)/1000);
+      ctx.save();
       ctx.beginPath();
       let first = true;
       for(let x = xMin; x <= xMax; x += step) {
@@ -1070,20 +1074,18 @@ function drawFunctions() {
         else ctx.lineTo(px, py);
       }
       if(selectedFunctionIdx === idx) {
-        ctx.save();
-        ctx.strokeStyle = '#e74c3c';
+        ctx.strokeStyle = '#f90'; // 橙色，与点高亮一致
         ctx.lineWidth = 4;
-        ctx.shadowColor = '#e74c3c';
-        ctx.shadowBlur = 8;
-        ctx.stroke();
-        ctx.restore();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
       } else {
-        ctx.save();
         ctx.strokeStyle = '#e67e22';
         ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
       }
+      ctx.stroke();
+      ctx.restore();
     } catch {}
   });
   ctx.restore();
@@ -1992,6 +1994,15 @@ function renderSidebar() {
       <span class="item-text">圆 O<sub>${circleNum}</sub> (r=${rDisplay})</span>
       <button class="delete-btn" onclick="deleteCircle(${idx})" title="删除圆">×</button>
     `;
+    if(selectedCircleIdx === idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => {
+      if(selectedCircleIdx === idx) {
+        selectedCircleIdx = null;
+      } else {
+        selectedCircleIdx = idx;
+      }
+      redraw();
+    };
     circleList.appendChild(li);
   });
   
