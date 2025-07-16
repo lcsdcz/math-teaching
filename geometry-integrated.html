@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>含参函数解析几何教学工具</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f8f8; margin:0; }
+    .container { display: flex; height: 100vh; }
+    .sidebar {
+      width: 320px;
+      background: #f4f6fa;
+      border-right: 1px solid #ddd;
+      padding: 18px 10px 10px 18px;
+      overflow-y: auto;
+    }
+    .sidebar h3 { margin: 10px 0 6px 0; font-size: 18px; color: #3498db; }
+    .sidebar ul { list-style: none; padding: 0; margin: 0 0 10px 0; }
+    .sidebar li { margin-bottom: 7px; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
+    .sidebar li.selected { background: #d0e8ff; color: #217dbb; font-weight: bold; }
+    .main { flex: 1; display: flex; flex-direction: column; }
+    .toolbar {
+      text-align: left;
+      padding: 12px 0 8px 30px;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+    }
+    .toolbar button {
+      font-size: 16px;
+      margin: 0 5px 0 0;
+      padding: 6px 16px;
+    }
+    .input-area {
+      text-align: left;
+      margin: 10px 0 0 30px;
+    }
+    .input-area input, .input-area button {
+      font-size: 16px;
+      margin: 0 5px 0 0;
+      padding: 6px 10px;
+    }
+    .active-btn {
+      background: #3498db;
+      color: #fff;
+      border: none;
+    }
+    #canvas {
+      background: #fff;
+      border: 1px solid #ccc;
+      margin: 18px auto 0 auto;
+      box-shadow: 0 2px 8px #ddd;
+      display: block;
+      cursor: grab;
+    }
+    .intersection-point { fill: #e67e22; stroke: #d35400; stroke-width: 2px; }
+    /* 下拉菜单样式 */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .dropdown-toggle {
+      background-color: #f4f6fa;
+      color: #333;
+      border: 1px solid #ccc;
+      padding: 6px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .dropdown-toggle:hover {
+      background-color: #e0e0e0;
+    }
+    .dropdown-menu {
+      position: absolute;
+      background-color: #fff;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1000;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .dropdown-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      color: #333;
+      font-size: 14px;
+    }
+    .dropdown-item:hover {
+      background-color: #f0f0f0;
+    }
+    /* 参数控制样式 */
+    .parameter-control {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0;
+    }
+    .parameter-item {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .parameter-item label {
+      min-width: 30px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .parameter-item input[type="range"] {
+      flex: 1;
+      height: 6px;
+      background: #ddd;
+      outline: none;
+      border-radius: 3px;
+    }
+    .parameter-item input[type="number"] {
+      width: 60px;
+      padding: 4px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    .parameter-detected {
+      background: #e8f5e8;
+      color: #27ae60;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin: 4px 0;
+    }
+    /* 删除按钮样式 */
+    .delete-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 8px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .delete-btn:hover {
+      opacity: 1;
+    }
+    .sidebar li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar li .item-text {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="sidebar">
+    <!-- 参数控制区域 -->
+    <div class="parameter-control">
+      <h3 style="margin: 0 0 8px 0; color: #e74c3c;">参数控制</h3>
+      <div id="parameter-list"></div>
+      <div style="margin-top: 10px;">
+        <button onclick="addCustomParameter()" style="font-size: 14px; padding: 4px 8px;">添加参数</button>
+        <button onclick="resetParameters()" style="font-size: 14px; padding: 4px 8px;">重置参数</button>
+      </div>
+    </div>
+    
+    <h3>点</h3>
+    <ul id="point-list"></ul>
+    <h3>线段/直线</h3>
+    <ul id="segment-list"></ul>
+    <h3>直线</h3>
+    <ul id="line-list"></ul>
+    <h3>圆</h3>
+    <ul id="circle-list"></ul>
+    <h3>函数/方程</h3>
+    <ul id="function-list"></ul>
+  </div>
+  <div class="main">
+    <div class="toolbar">
+      <button id="btn-move" onclick="switchMode('move')">移动/拖动</button>
+      <button id="btn-point" onclick="switchMode('point')">点</button>
+      <button id="btn-segment" onclick="switchMode('segment')">线段</button>
+      <div class="dropdown" style="display:inline-block;position:relative;">
+        <button id="btn-function" class="dropdown-toggle active-btn" onclick="toggleFunctionMenu()">含参函数▼</button>
+        <div class="dropdown-menu" id="function-menu" style="display:none;position:absolute;left:0;top:36px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 2px 8px #eee;z-index:10;min-width:120px;">
+          <div class="dropdown-item" data-type="circle">圆</div>
+          <div class="dropdown-item" data-type="ellipse">椭圆</div>
+          <div class="dropdown-item" data-type="parabola">抛物线</div>
+          <div class="dropdown-item" data-type="hyperbola">双曲线</div>
+          <div class="dropdown-item" data-type="equation">直接输入方程</div>
+          <div class="dropdown-item" data-type="polar">极坐标</div>
+        </div>
+      </div>
+      <button id="btn-line" onclick="switchMode('line')">作直线</button>
+      <button onclick="resetAll()">重置</button>
+    </div>
+    <div class="input-area" id="input-area"></div>
+    <div id="function-type-label" style="margin-left:30px;margin-top:8px;font-size:17px;color:#217dbb;"></div>
+    <div id="parameter-hint" style="margin-left:30px;margin-top:4px;font-size:14px;color:#7f8c8d;"></div>
+    <div style="position:relative;flex:1;">
+      <canvas id="canvas" width="900" height="600"></canvas>
+      <button id="reset-view-btn" title="视角复位" style="position:absolute;top:12px;right:18px;z-index:1001;background:#fff;border:1px solid #ccc;border-radius:6px;padding:4px 12px;font-size:15px;cursor:pointer;">视角复位</button>
+      <div style="position:absolute;right:18px;bottom:12px;font-size:15px;background:rgba(255,255,255,0.8);padding:4px 10px;border-radius:6px;">
+        <label><input type="checkbox" id="toggle-grid" checked onchange="toggleGrid()"> 显示网格</label>
+      </div>
+    </div>
+    <button id="fullscreen-btn" title="全屏" style="position:fixed;top:16px;right:24px;z-index:1000;background:#fff;border:1px solid #ccc;border-radius:6px;padding:6px 14px;font-size:18px;cursor:pointer;transition:box-shadow 0.2s;">⛶</button>
+    <style>
+    #fullscreen-btn:hover { box-shadow:0 2px 8px #aaa; }
+    </style>
+  </div>
+</div>
+<script>
+// 数据结构
+let points = [];
+let segments = [];
+let circles = [];
+let functions = [];
+let intersectionPoints = [];
+let intersectionLines = [];
+let draggingPoint = null;
+let dragOffset = {x:0, y:0};
+let mode = 'point';
+let tempSegment = [];
+let tempCircle = [];
+let tempLine = [];
+let clickAddPointMode = false;
+let selectedPointIdx = null;
+let selectedSegmentIdx = null;
+let selectedCircleIdx = null;
+let selectedFunctionIdx = null;
+let lineSelectPoints = [];
+let lineSelectActive = false;
+let ellipses = [];
+let parabolas = [];
+let hyperbolas = [];
+let polars = [];
+
+// 参数系统
+let parameters = {}; // 存储所有参数 {name: value}
+let parameterRanges = {}; // 存储参数范围 {name: {min, max, step}}
+
+// 撤销系统
+let operationHistory = []; // 操作历史
+const maxHistorySize = 50; // 最大历史记录数
+
+// 坐标系平移/缩放
+let draggingCanvas = false;
+let scalingCanvas = false;
+let panOffset = {x: 0, y: 0}; // 视图平移量，单位：数学坐标
+let lastMouse = {x: 0, y: 0};
+let scale = 40; // 初始缩放比例
+// 无限缩放，不再限制 minScale/maxScale
+// const minScale = 10, maxScale = 200;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const width = canvas.width;
+const height = canvas.height;
+let origin = { x: width/2, y: height/2 };
+let showGrid = true;
+
+// 全局变量：是否跳过删除确认
+let skipDeleteConfirm = false;
+
+// 参数管理函数
+function extractParameters(text) {
+  // 只提取单字母参数，排除常用变量
+  const exclude = ['x', 'y', 'r', 'theta', 'th', 'π'];
+  const params = [];
+  // 匹配所有字母
+  const matches = text.match(/[a-zA-Z]/g) || [];
+  matches.forEach(ch => {
+    const lower = ch.toLowerCase();
+    if (!exclude.includes(lower) && !params.includes(ch)) {
+      params.push(ch);
+    }
+  });
+  return params;
+}
+
+function addParameter(name, value = 1, min = -10, max = 10, step = 0.1) {
+  if (!parameters.hasOwnProperty(name)) {
+    parameters[name] = value;
+    parameterRanges[name] = {min, max, step};
+    renderParameterControls();
+  }
+}
+
+function updateParameter(name, value) {
+  if (parameters.hasOwnProperty(name)) {
+    parameters[name] = parseFloat(value);
+    redraw();
+  }
+}
+
+function resetParameters() {
+  parameters = {};
+  parameterRanges = {};
+  renderParameterControls();
+  redraw();
+}
+
+function addCustomParameter() {
+  const name = prompt("请输入参数名称（单个字母，如 a, b, m, n 等）:");
+  if (name && /^[a-zA-Z]$/.test(name)) {
+    const value = parseFloat(prompt("请输入初始值:", "1")) || 1;
+    addParameter(name, value);
+  } else if (name) {
+    alert("参数名称必须是单个字母！");
+  }
+}
+
+function substituteParameters(expr) {
+  if (!expr) return expr;
+  let result = expr.toString();
+  
+  // 处理乘法简写（如 5m -> 5*m）
+  result = result.replace(/(\d+)([a-zA-Z])/g, '$1*$2');
+  // 处理相邻字母（如 mn -> m*n）
+  result = result.replace(/([a-zA-Z])([a-zA-Z])/g, '$1*$2');
+  
+  for (let [name, value] of Object.entries(parameters)) {
+    // 使用正则表达式替换参数，确保不会替换函数名的一部分
+    const regex = new RegExp('\\b' + name + '\\b', 'g');
+    result = result.replace(regex, value.toString());
+  }
+  return result;
+}
+
+function renderParameterControls() {
+  const container = document.getElementById('parameter-list');
+  container.innerHTML = '';
+  
+  if (Object.keys(parameters).length === 0) {
+    container.innerHTML = '<div style="color:#999;font-size:13px;">暂无参数</div>';
+    return;
+  }
+  
+  for (let [name, value] of Object.entries(parameters)) {
+    const range = parameterRanges[name];
+    const div = document.createElement('div');
+    div.className = 'parameter-item';
+    div.innerHTML = `
+      <label>${name}:</label>
+      <input type="range" 
+             min="${range.min}" 
+             max="${range.max}" 
+             step="${range.step}" 
+             value="${value}"
+             oninput="updateParameter('${name}', this.value); document.getElementById('param-${name}-value').value = this.value">
+      <input type="number" 
+             id="param-${name}-value"
+             min="${range.min}" 
+             max="${range.max}" 
+             step="${range.step}" 
+             value="${value}"
+             oninput="updateParameter('${name}', this.value); this.previousElementSibling.value = this.value"
+             onchange="updateParameter('${name}', this.value); this.previousElementSibling.value = this.value">
+      <button onclick="resetParameter('${name}')" style="padding:2px 6px;font-size:12px;">重置</button>
+      <button onclick="removeParameter('${name}')" style="padding:2px 6px;font-size:12px;">×</button>
+    `;
+    container.appendChild(div);
+  }
+}
+
+function removeParameter(name) {
+  delete parameters[name];
+  delete parameterRanges[name];
+  renderParameterControls();
+  redraw();
+}
+
+function detectAndAddParameters(inputs) {
+  const detectedParams = [];
+  inputs.forEach(input => {
+    if (typeof input === 'string') {
+      const params = extractParameters(input);
+      params.forEach(param => {
+        if (!parameters.hasOwnProperty(param)) {
+          addParameter(param);
+          detectedParams.push(param);
+        }
+      });
+    }
+  });
+  
+  if (detectedParams.length > 0) {
+    document.getElementById('parameter-hint').innerHTML = 
+      `<div class="parameter-detected">检测到新参数: ${detectedParams.join(', ')}</div>`;
+    setTimeout(() => {
+      document.getElementById('parameter-hint').innerHTML = '';
+    }, 3000);
+  }
+}
+
+// 撤销系统函数
+function saveState() {
+  const state = {
+    points: JSON.parse(JSON.stringify(points)),
+    segments: JSON.parse(JSON.stringify(segments)),
+    circles: JSON.parse(JSON.stringify(circles)),
+    ellipses: JSON.parse(JSON.stringify(ellipses)),
+    parabolas: JSON.parse(JSON.stringify(parabolas)),
+    hyperbolas: JSON.parse(JSON.stringify(hyperbolas)),
+    polars: JSON.parse(JSON.stringify(polars)),
+    functions: JSON.parse(JSON.stringify(functions)),
+    intersectionPoints: JSON.parse(JSON.stringify(intersectionPoints)),
+    intersectionLines: JSON.parse(JSON.stringify(intersectionLines)),
+    parameters: JSON.parse(JSON.stringify(parameters)),
+    parameterRanges: JSON.parse(JSON.stringify(parameterRanges))
+  };
+  
+  operationHistory.push(state);
+  if (operationHistory.length > maxHistorySize) {
+    operationHistory.shift();
+  }
+}
+
+function undo() {
+  if (operationHistory.length > 0) {
+    const state = operationHistory.pop();
+    points = state.points;
+    segments = state.segments;
+    circles = state.circles;
+    ellipses = state.ellipses;
+    parabolas = state.parabolas;
+    hyperbolas = state.hyperbolas;
+    polars = state.polars;
+    functions = state.functions;
+    intersectionPoints = state.intersectionPoints;
+    intersectionLines = state.intersectionLines;
+    parameters = state.parameters;
+    parameterRanges = state.parameterRanges;
+    
+    renderParameterControls();
+    redraw();
+  }
+}
+
+// 删除函数
+function deletePoint(index) {
+  if (skipDeleteConfirm) {
+    doDeletePoint(index);
+    return;
+  }
+  showDeleteConfirm('删除此点会同时删除相关的线段和直线，确定要删除吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeletePoint(index);
+  });
+}
+
+function doDeletePoint(index) {
+  saveState();
+  const pointToDelete = points[index];
+  segments = segments.filter(seg => seg.p1 !== pointToDelete && seg.p2 !== pointToDelete);
+  intersectionLines = intersectionLines.filter(line => line.p1 !== pointToDelete && line.p2 !== pointToDelete);
+  circles = circles.filter(c => c.centerRef !== pointToDelete);
+  points.splice(index, 1);
+  selectedPointIdx = null;
+  updateIntersections();
+  redraw();
+}
+
+function deleteSegment(index) {
+  if (skipDeleteConfirm) {
+    doDeleteSegment(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此线段吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteSegment(index);
+  });
+}
+
+function doDeleteSegment(index) {
+  saveState();
+  segments.splice(index, 1);
+  updateIntersections();
+  redraw();
+}
+
+function deleteLine(index) {
+  if (skipDeleteConfirm) {
+    doDeleteLine(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此直线吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteLine(index);
+  });
+}
+
+function doDeleteLine(index) {
+  saveState();
+  intersectionLines.splice(index, 1);
+  redraw();
+}
+
+function deleteCircle(index) {
+  if (skipDeleteConfirm) {
+    doDeleteCircle(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此圆吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteCircle(index);
+  });
+}
+
+function doDeleteCircle(index) {
+  saveState();
+  circles.splice(index, 1);
+  updateIntersections();
+  redraw();
+}
+
+function deleteFunction(index) {
+  if (skipDeleteConfirm) {
+    doDeleteFunction(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此函数吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteFunction(index);
+  });
+}
+
+function doDeleteFunction(index) {
+  saveState();
+  functions.splice(index, 1);
+  updateIntersections();
+  redraw();
+}
+
+function deleteEllipse(index) {
+  if (skipDeleteConfirm) {
+    doDeleteEllipse(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此椭圆吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteEllipse(index);
+  });
+}
+
+function doDeleteEllipse(index) {
+  saveState();
+  ellipses.splice(index, 1);
+  redraw();
+}
+
+function deleteParabola(index) {
+  if (skipDeleteConfirm) {
+    doDeleteParabola(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此抛物线吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteParabola(index);
+  });
+}
+
+function doDeleteParabola(index) {
+  saveState();
+  parabolas.splice(index, 1);
+  redraw();
+}
+
+function deleteHyperbola(index) {
+  if (skipDeleteConfirm) {
+    doDeleteHyperbola(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此双曲线吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeleteHyperbola(index);
+  });
+}
+
+function doDeleteHyperbola(index) {
+  saveState();
+  hyperbolas.splice(index, 1);
+  redraw();
+}
+
+function deletePolar(index) {
+  if (skipDeleteConfirm) {
+    doDeletePolar(index);
+    return;
+  }
+  showDeleteConfirm('确定要删除此极坐标曲线吗？', function(checked) {
+    if (checked) skipDeleteConfirm = true;
+    doDeletePolar(index);
+  });
+}
+
+function doDeletePolar(index) {
+  saveState();
+  polars.splice(index, 1);
+  redraw();
+}
+
+// 通用删除确认弹窗
+function showDeleteConfirm(msg, callback) {
+  // 创建遮罩
+  let mask = document.createElement('div');
+  mask.style.position = 'fixed';
+  mask.style.left = '0';
+  mask.style.top = '0';
+  mask.style.width = '100vw';
+  mask.style.height = '100vh';
+  mask.style.background = 'rgba(0,0,0,0.08)';
+  mask.style.zIndex = 9999;
+  // 创建弹窗
+  let box = document.createElement('div');
+  box.style.position = 'fixed';
+  box.style.left = '50%';
+  box.style.top = '20%';
+  box.style.transform = 'translate(-50%, 0)';
+  box.style.background = '#fff';
+  box.style.borderRadius = '8px';
+  box.style.boxShadow = '0 4px 24px #aaa';
+  box.style.padding = '28px 32px 18px 32px';
+  box.style.minWidth = '320px';
+  box.style.textAlign = 'center';
+  box.style.zIndex = 10000;
+  box.innerHTML = `
+    <div style="font-size:18px;font-weight:bold;margin-bottom:10px;">删除确认</div>
+    <div style="font-size:15px;margin-bottom:18px;">${msg}</div>
+    <label style="font-size:14px;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;">
+      <input type="checkbox" id="skip-delete-confirm"> 之后不再提示
+    </label><br>
+    <button id="delete-confirm-ok" style="font-size:15px;padding:4px 18px;margin-right:16px;">确定</button>
+    <button id="delete-confirm-cancel" style="font-size:15px;padding:4px 18px;">取消</button>
+  `;
+  document.body.appendChild(mask);
+  document.body.appendChild(box);
+  document.getElementById('delete-confirm-ok').onclick = function() {
+    let checked = document.getElementById('skip-delete-confirm').checked;
+    document.body.removeChild(mask);
+    document.body.removeChild(box);
+    callback(checked);
+  };
+  document.getElementById('delete-confirm-cancel').onclick = function() {
+    document.body.removeChild(mask);
+    document.body.removeChild(box);
+  };
+}
+
+function switchMode(m) {
+  mode = m;
+  document.querySelectorAll('.toolbar button').forEach(btn=>btn.classList.remove('active-btn'));
+  if(document.getElementById('btn-' + m))
+    document.getElementById('btn-' + m).classList.add('active-btn');
+  tempSegment = [];
+  tempCircle = [];
+  tempLine = [];
+  // 作直线模式初始化
+  if(m === 'line') {
+    lineSelectPoints = [];
+    lineSelectActive = true;
+  } else {
+    lineSelectPoints = [];
+    lineSelectActive = false;
+  }
+  renderInputArea();
+  if(mode==='move') {
+    canvas.style.cursor = 'grab';
+  } else if(mode==='point') {
+    canvas.style.cursor = 'crosshair';
+  } else if(mode==='line') {
+    canvas.style.cursor = 'pointer';
+  } else {
+    canvas.style.cursor = 'default';
+  }
+}
+
+// 下拉菜单逻辑
+let functionType = 'equation';
+document.addEventListener('click', function(e) {
+  if(!e.target.closest('.dropdown')) {
+    document.getElementById('function-menu').style.display = 'none';
+  }
+});
+
+function toggleFunctionMenu() {
+  const menu = document.getElementById('function-menu');
+  menu.style.display = (menu.style.display==='block') ? 'none' : 'block';
+}
+
+document.querySelectorAll('#function-menu .dropdown-item').forEach(item => {
+  item.onclick = function(e) {
+    functionType = this.getAttribute('data-type');
+    document.getElementById('function-menu').style.display = 'none';
+    switchMode('function');
+    renderInputArea();
+  };
+});
+
+function renderInputArea() {
+  const area = document.getElementById('input-area');
+  const label = document.getElementById('function-type-label');
+  // 新增：类型中文名映射
+  const typeMap = {
+    'circle': '圆',
+    'ellipse': '椭圆',
+    'parabola': '抛物线',
+    'hyperbola': '双曲线',
+    'polar': '极坐标',
+    'equation': '方程/函数'
+  };
+  if(mode==='function') {
+    label.textContent = '当前类型：含参' + (typeMap[functionType] || '方程/函数');
+  } else {
+    label.textContent = '';
+  }
+  
+  if(mode==='point') {
+    area.innerHTML = `
+      <input id="input-x" type="text" placeholder="x坐标 (可用参数)" style="width:100px;">
+      <input id="input-y" type="text" placeholder="y坐标 (可用参数)" style="width:100px;">
+      <button onclick="addPointByInput()">添加点</button>
+    `;
+  } else if(mode==='segment') {
+    area.innerHTML = `
+      <input id="input-x1" type="text" placeholder="x₁ (可用参数)" style="width:80px;">
+      <input id="input-y1" type="text" placeholder="y₁ (可用参数)" style="width:80px;">
+      <input id="input-x2" type="text" placeholder="x₂ (可用参数)" style="width:80px;">
+      <input id="input-y2" type="text" placeholder="y₂ (可用参数)" style="width:80px;">
+      <button onclick="addSegmentByInput()">添加线段</button>
+    `;
+  } else if(mode==='function') {
+    if(functionType==='circle') {
+      area.innerHTML = `
+        <input id="input-x" type="text" placeholder="圆心x (可用参数如m)" style="width:120px;">
+        <input id="input-y" type="text" placeholder="圆心y (可用参数如n)" style="width:120px;">
+        <input id="input-r" type="text" placeholder="半径 (可用参数如r)" style="width:120px;">
+        <button onclick="addCircleByInput()">添加圆</button>
+      `;
+    } else if(functionType==='ellipse') {
+      area.innerHTML = `
+        <input id="input-x" type="text" placeholder="中心x (可用参数)" style="width:100px;">
+        <input id="input-y" type="text" placeholder="中心y (可用参数)" style="width:100px;">
+        <input id="input-a" type="text" placeholder="a (可用参数如m)" style="width:100px;">
+        <input id="input-b" type="text" placeholder="b (可用参数如n)" style="width:100px;">
+        <button onclick="addEllipseByInput()">添加椭圆</button>
+      `;
+    } else if(functionType==='parabola') {
+      area.innerHTML = `
+        <select id="parabola-type" style="width:90px;">
+          <option value="y2">y²=2px</option>
+          <option value="x2">x²=2py</option>
+        </select>
+        <input id="input-p" type="text" placeholder="p (可用参数)" style="width:100px;">
+        <button onclick="addParabolaByInput()">添加抛物线</button>
+      `;
+    } else if(functionType==='hyperbola') {
+      area.innerHTML = `
+        <input id="input-x" type="text" placeholder="中心x (可用参数)" style="width:100px;">
+        <input id="input-y" type="text" placeholder="中心y (可用参数)" style="width:100px;">
+        <input id="input-a" type="text" placeholder="a (可用参数)" style="width:100px;">
+        <input id="input-b" type="text" placeholder="b (可用参数)" style="width:100px;">
+        <select id="hyperbola-type" style="width:90px;">
+          <option value="x">x轴方向</option>
+          <option value="y">y轴方向</option>
+        </select>
+        <button onclick="addHyperbolaByInput()">添加双曲线</button>
+      `;
+    } else if(functionType==='polar') {
+      area.innerHTML = `
+        <input id="input-polar" type="text" placeholder="如 r=a+b*sin(c*theta)" style="width:280px;">
+        <button onclick="addPolarByInput()">绘制极坐标曲线</button>
+      `;
+    } else {
+      area.innerHTML = `
+        <input id="input-func" type="text" placeholder="如 y=a*x^2+b 或 x^2/a+y^2/b=1" style="width:300px;">
+        <button onclick="addFunction()">绘制方程</button>
+      `;
+    }
+  } else if(mode==='line') {
+    let btns = '';
+    if(lineSelectPoints.length === 2) {
+      btns = `<button onclick="confirmLine()">确定</button> <button onclick="cancelLineSelect()">取消</button>`;
+    } else if(lineSelectPoints.length === 1) {
+      btns = `<button onclick="cancelLineSelect()">取消</button>`;
+    }
+    area.innerHTML = `<span>依次点击两个点（高亮）作直线</span> ${btns}`;
+  } else if(mode==='move') {
+    area.innerHTML = `<div style='color:#888;font-size:15px;margin:8px 0 0 0;'>提示：按住 <b>Shift</b> 并用鼠标左键拖动可缩放视图</div>`;
+  }
+}
+
+function toggleClickAddPoint() {
+  // 该函数已废弃，无需实现
+}
+
+function getAdaptiveStep(scale) {
+  const targetPx = 80;
+  const steps = [1, 2, 5, 10];
+  let base = Math.pow(10, Math.floor(Math.log10(1/scale*targetPx)));
+  let bestStep = base, minDiff = Infinity;
+  for (let s of steps) {
+    let step = base * s;
+    let px = step * scale;
+    let diff = Math.abs(px - targetPx);
+    if (diff < minDiff && px > 30) {
+      minDiff = diff;
+      bestStep = step;
+    }
+  }
+  if (bestStep < 1) bestStep = Math.round(bestStep * 100) / 100;
+  return bestStep;
+}
+
+function drawAxes() {
+  ctx.save();
+  let mainStep = getAdaptiveStep(scale);
+  let subStep = mainStep / 5;
+  if(showGrid) {
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 1;
+    // 横向次网格
+    let xStart = toMathX(0), xEnd = toMathX(width);
+    let yStart = toMathY(height), yEnd = toMathY(0);
+    for(let x = Math.ceil(xStart/subStep)*subStep; x <= xEnd; x += subStep) {
+      if(Math.abs(x/mainStep-Math.round(x/mainStep))<1e-6) continue;
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(x), 0);
+      ctx.lineTo(toCanvasX(x), height);
+      ctx.stroke();
+    }
+    for(let y = Math.ceil(yStart/subStep)*subStep; y <= yEnd; y += subStep) {
+      if(Math.abs(y/mainStep-Math.round(y/mainStep))<1e-6) continue;
+      ctx.beginPath();
+      ctx.moveTo(0, toCanvasY(y));
+      ctx.lineTo(width, toCanvasY(y));
+      ctx.stroke();
+    }
+    // 画主网格
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1.5;
+    for(let x = Math.ceil(xStart/mainStep)*mainStep; x <= xEnd; x += mainStep) {
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(x), 0);
+      ctx.lineTo(toCanvasX(x), height);
+      ctx.stroke();
+    }
+    for(let y = Math.ceil(yStart/mainStep)*mainStep; y <= yEnd; y += mainStep) {
+      ctx.beginPath();
+      ctx.moveTo(0, toCanvasY(y));
+      ctx.lineTo(width, toCanvasY(y));
+      ctx.stroke();
+    }
+  }
+  // 画坐标轴
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 3;
+  // 判断x轴/y轴是否在可见范围
+  let xAxisInView = toCanvasY(0) >= 0 && toCanvasY(0) <= height;
+  let yAxisInView = toCanvasX(0) >= 0 && toCanvasX(0) <= width;
+  if(xAxisInView) ctx.beginPath(),ctx.moveTo(0,toCanvasY(0)),ctx.lineTo(width,toCanvasY(0)),ctx.stroke();
+  if(yAxisInView) ctx.beginPath(),ctx.moveTo(toCanvasX(0),0),ctx.lineTo(toCanvasX(0),height),ctx.stroke();
+  // 原点高亮
+  if(xAxisInView && yAxisInView) {
+    ctx.beginPath();
+    ctx.arc(toCanvasX(0), toCanvasY(0), 7, 0, 2*Math.PI);
+    ctx.fillStyle = '#f00';
+    ctx.fill();
+  }
+  // 主刻度数字（只显示在可见区域）
+  ctx.fillStyle = '#222';
+  ctx.font = '13px Arial';
+  let xMin = toMathX(0), xMax = toMathX(width);
+  let yMin = toMathY(height), yMax = toMathY(0);
+  // x轴主刻度
+  let xStart = Math.ceil(xMin / mainStep) * mainStep;
+  for(let x = xStart; x <= xMax; x += mainStep) {
+    if(Math.abs(x)<1e-6) continue;
+    let px = toCanvasX(x);
+    if(px < 0 || px > width) continue;
+    ctx.beginPath();
+    ctx.moveTo(px, toCanvasY(0)-8);
+    ctx.lineTo(px, toCanvasY(0)+8);
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillText(x.toFixed(mainStep<1?2:1), px - 10, toCanvasY(0) + 22);
+  }
+  // y轴主刻度
+  let yStart = Math.ceil(yMin / mainStep) * mainStep;
+  for(let y = yStart; y <= yMax; y += mainStep) {
+    if(Math.abs(y)<1e-6) continue;
+    let py = toCanvasY(y);
+    if(py < 0 || py > height) continue;
+    ctx.beginPath();
+    ctx.moveTo(toCanvasX(0)-8, py);
+    ctx.lineTo(toCanvasX(0)+8, py);
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillText(y.toFixed(mainStep<1?2:1), toCanvasX(0) + 10, py + 4);
+  }
+  // 边界主刻度数字（风格与主刻度一致）
+  ctx.fillStyle = '#222';
+  ctx.font = '13px Arial';
+  // y轴不在可见范围，左边整条边标注y主刻度
+  if(!yAxisInView) {
+    for(let y = yStart; y <= yMax; y += mainStep) {
+      if(Math.abs(y)<1e-6) continue;
+      let py = toCanvasY(y);
+      if(py < 0 || py > height) continue;
+      ctx.fillText(y.toFixed(mainStep<1?2:1), 10, py + 4);
+    }
+  }
+  // x轴不在可见范围，下边整条边标注x主刻度
+  if(!xAxisInView) {
+    for(let x = xStart; x <= xMax; x += mainStep) {
+      if(Math.abs(x)<1e-6) continue;
+      let px = toCanvasX(x);
+      if(px < 0 || px > width) continue;
+      ctx.fillText(x.toFixed(mainStep<1?2:1), px - 10, height - 8);
+    }
+  }
+  ctx.restore();
+}
+
+function drawPoints() {
+  ctx.save();
+  points.forEach((pt, idx) => {
+    // 计算参数化坐标
+    let x, y;
+    try {
+      if (pt.xExpr && pt.yExpr) {
+        x = eval(substituteParameters(pt.xExpr));
+        y = eval(substituteParameters(pt.yExpr));
+      } else {
+        x = pt.x;
+        y = pt.y;
+      }
+    } catch {
+      x = pt.x;
+      y = pt.y;
+    }
+    
+    ctx.beginPath();
+    ctx.arc(toCanvasX(x), toCanvasY(y), 7, 0, 2*Math.PI);
+    let isLineSelected = (mode==='line' && lineSelectPoints.includes(pt));
+    ctx.fillStyle = isLineSelected ? '#f90' : (selectedPointIdx===idx ? '#f90' : '#3498db');
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = (selectedPointIdx===idx) ? 3 : 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = (toCanvasX(x) < width/2) ? 'left' : 'right';
+    ctx.fillText(String.fromCharCode(65+idx), toCanvasX(x)+(toCanvasX(x)<width/2?15:-15), toCanvasY(y)-10);
+    
+    // 更新点的实际坐标
+    pt.x = x;
+    pt.y = y;
+  });
+  ctx.restore();
+}
+
+function drawSegments() {
+  ctx.save();
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 2;
+  segments.forEach((seg, idx) => {
+    ctx.beginPath();
+    ctx.moveTo(toCanvasX(seg.p1.x), toCanvasY(seg.p1.y));
+    ctx.lineTo(toCanvasX(seg.p2.x), toCanvasY(seg.p2.y));
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawCircles() {
+  ctx.save();
+  ctx.strokeStyle = '#27ae60';
+  ctx.lineWidth = 2;
+  circles.forEach((c, idx) => {
+    // 计算参数化属性
+    let x, y, r;
+    try {
+      if (c.xExpr && c.yExpr && c.rExpr) {
+        x = eval(substituteParameters(c.xExpr));
+        y = eval(substituteParameters(c.yExpr));
+        r = eval(substituteParameters(c.rExpr));
+      } else {
+        x = c.x;
+        y = c.y;
+        r = c.r;
+      }
+    } catch {
+      x = c.x;
+      y = c.y;
+      r = c.r;
+    }
+    
+    ctx.beginPath();
+    ctx.arc(toCanvasX(x), toCanvasY(y), Math.abs(r)*scale, 0, 2*Math.PI);
+    ctx.stroke();
+    
+    // 更新圆的实际属性
+    c.x = x;
+    c.y = y;
+    c.r = r;
+  });
+  ctx.restore();
+}
+
+function drawEllipses() {
+  ctx.save();
+  ctx.strokeStyle = '#2980b9';
+  ctx.lineWidth = 2;
+  ellipses.forEach(e => {
+    // 计算参数化属性
+    let x, y, a, b;
+    try {
+      if (e.xExpr && e.yExpr && e.aExpr && e.bExpr) {
+        x = eval(substituteParameters(e.xExpr));
+        y = eval(substituteParameters(e.yExpr));
+        a = eval(substituteParameters(e.aExpr));
+        b = eval(substituteParameters(e.bExpr));
+      } else {
+        x = e.x;
+        y = e.y;
+        a = e.a;
+        b = e.b;
+      }
+    } catch {
+      x = e.x;
+      y = e.y;
+      a = e.a;
+      b = e.b;
+    }
+    
+    ctx.beginPath();
+    for(let t=0;t<=2*Math.PI+0.01;t+=0.01) {
+      let px = x + a * Math.cos(t);
+      let py = y + b * Math.sin(t);
+      let cx = toCanvasX(px), cy = toCanvasY(py);
+      if(t===0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawFunctions() {
+  ctx.save();
+  functions.forEach((fobj, idx) => {
+    let expr = substituteParameters(fobj.expr);
+    try {
+      let xMin = toMathX(0), xMax = toMathX(width);
+      let step = Math.max(0.01, (xMax-xMin)/1000);
+      ctx.beginPath();
+      let first = true;
+      for(let x = xMin; x <= xMax; x += step) {
+        let y;
+        try { y = eval(expr); } catch { continue; }
+        if(typeof y !== 'number' || !isFinite(y)) continue;
+        let px = toCanvasX(x);
+        let py = toCanvasY(y);
+        if(first) { ctx.moveTo(px, py); first = false; }
+        else ctx.lineTo(px, py);
+      }
+      if(selectedFunctionIdx === idx) {
+        ctx.save();
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#e74c3c';
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.strokeStyle = '#e67e22';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    } catch {}
+  });
+  ctx.restore();
+}
+
+function drawIntersectionPoints() {
+  ctx.save();
+  intersectionPoints.forEach((pt, idx) => {
+    ctx.beginPath();
+    ctx.arc(toCanvasX(pt.x), toCanvasY(pt.y), 6, 0, 2*Math.PI);
+    ctx.fillStyle = '#e67e22';
+    ctx.fill();
+    ctx.strokeStyle = '#d35400';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#d35400';
+    ctx.fillText('交点'+(idx+1), toCanvasX(pt.x)+10, toCanvasY(pt.y)-10);
+  });
+  ctx.restore();
+}
+
+function drawIntersectionLines() {
+  ctx.save();
+  intersectionLines.forEach((line, idx) => {
+    let dx = line.p2.x - line.p1.x;
+    let dy = line.p2.y - line.p1.y;
+    if(dx === 0 && dy === 0) return;
+    // 计算直线与画布四边的交点
+    let points = [];
+    // 上边 y=0
+    {
+      let y = toMathY(0);
+      if(Math.abs(dy) > 1e-8) {
+        let t = (y - line.p1.y) / dy;
+        let x = line.p1.x + t * dx;
+        let px = toCanvasX(x), py = toCanvasY(y);
+        if(px >= 0 && px <= width) points.push({x, y});
+      }
+    }
+    // 下边 y=height
+    {
+      let y = toMathY(height);
+      if(Math.abs(dy) > 1e-8) {
+        let t = (y - line.p1.y) / dy;
+        let x = line.p1.x + t * dx;
+        let px = toCanvasX(x), py = toCanvasY(y);
+        if(px >= 0 && px <= width) points.push({x, y});
+      }
+    }
+    // 左边 x=0
+    {
+      let x = toMathX(0);
+      if(Math.abs(dx) > 1e-8) {
+        let t = (x - line.p1.x) / dx;
+        let y = line.p1.y + t * dy;
+        let px = toCanvasX(x), py = toCanvasY(y);
+        if(py >= 0 && py <= height) points.push({x, y});
+      }
+    }
+    // 右边 x=width
+    {
+      let x = toMathX(width);
+      if(Math.abs(dx) > 1e-8) {
+        let t = (x - line.p1.x) / dx;
+        let y = line.p1.y + t * dy;
+        let px = toCanvasX(x), py = toCanvasY(y);
+        if(py >= 0 && py <= height) points.push({x, y});
+      }
+    }
+    // 取最远的两个交点
+    if(points.length >= 2) {
+      // 计算两两距离，取最远的两个
+      let maxDist = 0, pA = points[0], pB = points[1];
+      for(let i=0;i<points.length;i++){
+        for(let j=i+1;j<points.length;j++){
+          let d = Math.hypot(points[i].x-points[j].x, points[i].y-points[j].y);
+          if(d > maxDist) { maxDist = d; pA = points[i]; pB = points[j]; }
+        }
+      }
+      ctx.save();
+      ctx.strokeStyle = '#6c3483';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(pA.x), toCanvasY(pA.y));
+      ctx.lineTo(toCanvasX(pB.x), toCanvasY(pB.y));
+      ctx.stroke();
+      // 标注直线方程在中点附近
+      let mx = (pA.x + pB.x) / 2;
+      let my = (pA.y + pB.y) / 2;
+      let eq = getLineEquation(line.p1, line.p2);
+      ctx.font = '13px Arial';
+      ctx.fillStyle = '#6c3483';
+      ctx.fillText(eq, toCanvasX(mx) + 10, toCanvasY(my) - 10);
+      ctx.restore();
+    }
+  });
+  ctx.restore();
+}
+
+function drawParabolas() {
+  ctx.save();
+  ctx.strokeStyle = '#8e44ad';
+  ctx.lineWidth = 2;
+  parabolas.forEach(pb => {
+    // 计算参数化属性
+    let p;
+    try {
+      if (pb.pExpr) {
+        p = eval(substituteParameters(pb.pExpr));
+      } else {
+        p = pb.p;
+      }
+    } catch {
+      p = pb.p;
+    }
+    
+    // 根据视图范围动态调整绘制范围
+    let xMin = toMathX(0), xMax = toMathX(width);
+    let yMin = toMathY(height), yMax = toMathY(0);
+    let maxRange = Math.max(Math.abs(xMax-xMin), Math.abs(yMax-yMin)) * 1.5;
+    
+    if(pb.type==='y2') {
+      // y²=2px
+      ctx.beginPath();
+      let first = true;
+      if(p > 0) {
+        // p>0时，开口向右，x>=0
+        for(let x=0;x<=maxRange;x+=0.05) {
+          let y1 = Math.sqrt(2*p*x);
+          if(isFinite(y1)) {
+            let cx = toCanvasX(x), cy1 = toCanvasY(y1);
+            if(first) { 
+              ctx.moveTo(cx, cy1); 
+              first = false; 
+            } else {
+              ctx.lineTo(cx, cy1);
+            }
+          }
+        }
+        // 绘制下半支
+        for(let x=maxRange;x>=0;x-=0.05) {
+          let y = -Math.sqrt(2*p*x);
+          if(isFinite(y)) {
+            let cx = toCanvasX(x), cy = toCanvasY(y);
+            ctx.lineTo(cx, cy);
+          }
+        }
+      } else {
+        // p<0时，开口向左，x<=0
+        for(let x=0;x>=-maxRange;x-=0.05) {
+          let y1 = Math.sqrt(-2*p*x);
+          if(isFinite(y1)) {
+            let cx = toCanvasX(x), cy1 = toCanvasY(y1);
+            if(first) { 
+              ctx.moveTo(cx, cy1); 
+              first = false; 
+            } else {
+              ctx.lineTo(cx, cy1);
+            }
+          }
+        }
+        // 绘制下半支
+        for(let x=-maxRange;x<=0;x+=0.05) {
+          let y = -Math.sqrt(-2*p*x);
+          if(isFinite(y)) {
+            let cx = toCanvasX(x), cy = toCanvasY(y);
+            ctx.lineTo(cx, cy);
+          }
+        }
+      }
+      ctx.stroke();
+    } else {
+      // x²=2py
+      ctx.beginPath();
+      let first = true;
+      if(p > 0) {
+        // p>0时，开口向上，y>=0
+        for(let y=0;y<=maxRange;y+=0.05) {
+          let x = Math.sqrt(2*p*y);
+          if(isFinite(x)) {
+            let cx1 = toCanvasX(x), cy = toCanvasY(y);
+            if(first) { 
+              ctx.moveTo(cx1, cy); 
+              first = false; 
+            } else {
+              ctx.lineTo(cx1, cy);
+            }
+          }
+        }
+        // 绘制左半支
+        for(let y=maxRange;y>=0;y-=0.05) {
+          let x = -Math.sqrt(2*p*y);
+          if(isFinite(x)) {
+            let cx = toCanvasX(x), cy = toCanvasY(y);
+            ctx.lineTo(cx, cy);
+          }
+        }
+      } else {
+        // p<0时，开口向下，y<=0
+        for(let y=0;y>=-maxRange;y-=0.05) {
+          let x = Math.sqrt(-2*p*y);
+          if(isFinite(x)) {
+            let cx1 = toCanvasX(x), cy = toCanvasY(y);
+            if(first) { 
+              ctx.moveTo(cx1, cy); 
+              first = false; 
+            } else {
+              ctx.lineTo(cx1, cy);
+            }
+          }
+        }
+        // 绘制左半支
+        for(let y=-maxRange;y<=0;y+=0.05) {
+          let x = -Math.sqrt(-2*p*y);
+          if(isFinite(x)) {
+            let cx = toCanvasX(x), cy = toCanvasY(y);
+            ctx.lineTo(cx, cy);
+          }
+        }
+      }
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+function drawHyperbolas() {
+  ctx.save();
+  ctx.strokeStyle = '#e67e22';
+  ctx.lineWidth = 2;
+  hyperbolas.forEach(hb => {
+    // 计算参数化属性
+    let x, y, a, b;
+    try {
+      if (hb.xExpr && hb.yExpr && hb.aExpr && hb.bExpr) {
+        x = eval(substituteParameters(hb.xExpr));
+        y = eval(substituteParameters(hb.yExpr));
+        a = eval(substituteParameters(hb.aExpr));
+        b = eval(substituteParameters(hb.bExpr));
+      } else {
+        x = hb.x;
+        y = hb.y;
+        a = hb.a;
+        b = hb.b;
+      }
+    } catch {
+      x = hb.x;
+      y = hb.y;
+      a = hb.a;
+      b = hb.b;
+    }
+    
+    if(hb.dir==='x') {
+      // x²/a² - y²/b² = 1
+      // 右支
+      ctx.beginPath();
+      let first = true;
+      for(let t=-4;t<=4;t+=0.02) {
+        let px = x + a*Math.cosh(t);
+        let py = y + b*Math.sinh(t);
+        let cx = toCanvasX(px), cy = toCanvasY(py);
+        if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+      
+      // 左支
+      ctx.beginPath();
+      first = true;
+      for(let t=-4;t<=4;t+=0.02) {
+        let px = x - a*Math.cosh(t);
+        let py = y + b*Math.sinh(t);
+        let cx = toCanvasX(px), cy = toCanvasY(py);
+        if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    } else {
+      // y²/a² - x²/b² = 1
+      // 上支
+      ctx.beginPath();
+      let first = true;
+      for(let t=-4;t<=4;t+=0.02) {
+        let py = y + a*Math.cosh(t);
+        let px = x + b*Math.sinh(t);
+        let cx = toCanvasX(px), cy = toCanvasY(py);
+        if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+      
+      // 下支
+      ctx.beginPath();
+      first = true;
+      for(let t=-4;t<=4;t+=0.02) {
+        let py = y - a*Math.cosh(t);
+        let px = x + b*Math.sinh(t);
+        let cx = toCanvasX(px), cy = toCanvasY(py);
+        if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+function drawPolars() {
+  ctx.save();
+  ctx.strokeStyle = '#16a085';
+  ctx.lineWidth = 2;
+  polars.forEach(pobj => {
+    let expr = substituteParameters(pobj.expr);
+    ctx.beginPath();
+    let first = true;
+    for(let theta=0;theta<=4*Math.PI;theta+=0.01) { // 增加绘制范围
+      let r;
+      try { 
+        // 替换theta和常见数学函数
+        let evalExpr = expr
+          .replace(/theta/g, theta)
+          .replace(/th/g, theta)
+          .replace(/sin/g, 'Math.sin')
+          .replace(/cos/g, 'Math.cos')
+          .replace(/tan/g, 'Math.tan')
+          .replace(/pi/g, 'Math.PI')
+          .replace(/\^/g, '**');
+        r = eval(evalExpr); 
+      } catch { continue; }
+      if(typeof r !== 'number' || !isFinite(r)) continue;
+      let x = r*Math.cos(theta), y = r*Math.sin(theta);
+      let cx = toCanvasX(x), cy = toCanvasY(y);
+      if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// 计算直线方程字符串
+function getLineEquation(p1, p2) {
+  let A = +(p2.y - p1.y).toFixed(2);
+  let B = +(p1.x - p2.x).toFixed(2);
+  let C = +(p2.x*p1.y - p1.x*p2.y).toFixed(2);
+  let eq = '';
+  if(A!==0) eq += (A===1?'':(A===-1?'-':A))+'x';
+  if(B!==0) eq += (B>0&&A!==0?'+':'')+(B===1?'':(B===-1?'-':B))+'y';
+  if(C!==0) eq += (C>0?'+':'')+C;
+  eq += '=0';
+  return eq.replace('1x','x').replace('1y','y').replace('+-','-');
+}
+
+function redraw() {
+  ctx.clearRect(0,0,width,height);
+  drawAxes();
+  drawSegments();
+  drawCircles();
+  drawEllipses();
+  drawParabolas();
+  drawHyperbolas();
+  drawPolars();
+  drawFunctions();
+  drawIntersectionLines();
+  drawIntersectionPoints();
+  drawPoints();
+  renderSidebar();
+}
+
+function toCanvasX(x) { return origin.x + (x - panOffset.x) * scale; }
+function toCanvasY(y) { return origin.y - (y - panOffset.y) * scale; }
+function toMathX(cx) { return Math.round(((cx - origin.x) / scale + panOffset.x) * 10) / 10; }
+function toMathY(cy) { return Math.round(((origin.y - cy) / scale + panOffset.y) * 10) / 10; }
+
+function evaluateExpression(expr) {
+  try {
+    const substituted = substituteParameters(expr);
+    return eval(substituted);
+  } catch {
+    return parseFloat(expr) || 0;
+  }
+}
+
+function addPointByInput() {
+  const xInput = document.getElementById('input-x').value;
+  const yInput = document.getElementById('input-y').value;
+  
+  detectAndAddParameters([xInput, yInput]);
+  
+  const x = evaluateExpression(xInput);
+  const y = evaluateExpression(yInput);
+  
+  if(isNaN(x) || isNaN(y)) { 
+    alert('请输入有效的坐标表达式！'); 
+    return; 
+  }
+  
+  saveState(); // 保存状态用于撤销
+  
+  points.push({
+    x: Math.round(x*10)/10, 
+    y: Math.round(y*10)/10,
+    xExpr: xInput,
+    yExpr: yInput
+  });
+  updateIntersections();
+  redraw();
+}
+
+function addSegmentByInput() {
+  const x1Input = document.getElementById('input-x1').value;
+  const y1Input = document.getElementById('input-y1').value;
+  const x2Input = document.getElementById('input-x2').value;
+  const y2Input = document.getElementById('input-y2').value;
+  
+  detectAndAddParameters([x1Input, y1Input, x2Input, y2Input]);
+  
+  const x1 = evaluateExpression(x1Input);
+  const y1 = evaluateExpression(y1Input);
+  const x2 = evaluateExpression(x2Input);
+  const y2 = evaluateExpression(y2Input);
+  
+  if([x1,y1,x2,y2].some(v=>isNaN(v))) { 
+    alert('请输入有效的坐标表达式！'); 
+    return; 
+  }
+  
+  saveState(); // 保存状态用于撤销
+  
+  let p1 = findOrCreatePoint(Math.round(x1*10)/10, Math.round(y1*10)/10);
+  let p2 = findOrCreatePoint(Math.round(x2*10)/10, Math.round(y2*10)/10);
+  segments.push({p1, p2});
+  updateIntersections();
+  redraw();
+}
+
+function addCircleByInput() {
+  const xInput = document.getElementById('input-x').value;
+  const yInput = document.getElementById('input-y').value;
+  const rInput = document.getElementById('input-r').value;
+  
+  detectAndAddParameters([xInput, yInput, rInput]);
+  
+  const x = evaluateExpression(xInput);
+  const y = evaluateExpression(yInput);
+  const r = evaluateExpression(rInput);
+  
+  if(isNaN(x) || isNaN(y) || isNaN(r) || r<=0) { 
+    alert('请输入有效的圆心坐标和正数半径表达式！'); 
+    return; 
+  }
+  
+  saveState(); // 保存状态用于撤销
+  
+  let center = findOrCreatePoint(Math.round(x*10)/10, Math.round(y*10)/10);
+  circles.push({
+    x: Math.round(x*10)/10, 
+    y: Math.round(y*10)/10, 
+    r: Math.round(r*10)/10, 
+    centerRef: center,
+    xExpr: xInput,
+    yExpr: yInput,
+    rExpr: rInput
+  });
+  updateIntersections();
+  redraw();
+}
+
+function addEllipseByInput() {
+  const xInput = document.getElementById('input-x').value;
+  const yInput = document.getElementById('input-y').value;
+  const aInput = document.getElementById('input-a').value;
+  const bInput = document.getElementById('input-b').value;
+  
+  detectAndAddParameters([xInput, yInput, aInput, bInput]);
+  
+  const x = evaluateExpression(xInput);
+  const y = evaluateExpression(yInput);
+  const a = evaluateExpression(aInput);
+  const b = evaluateExpression(bInput);
+  
+  if(isNaN(x)||isNaN(y)||isNaN(a)||isNaN(b)||a<=0||b<=0) {
+    alert('请输入有效的中心坐标和正数a、b表达式！'); 
+    return;
+  }
+  
+  saveState(); // 保存状态用于撤销
+  
+  ellipses.push({
+    x: Math.round(x*10)/10, 
+    y: Math.round(y*10)/10, 
+    a: Math.round(a*10)/10, 
+    b: Math.round(b*10)/10,
+    xExpr: xInput,
+    yExpr: yInput,
+    aExpr: aInput,
+    bExpr: bInput,
+    raw: `椭圆 中心(${xInput},${yInput}) a=${aInput} b=${bInput}`
+  });
+  redraw();
+}
+
+function addParabolaByInput() {
+  const type = document.getElementById('parabola-type').value;
+  const pInput = document.getElementById('input-p').value;
+  
+  detectAndAddParameters([pInput]);
+  
+  const p = evaluateExpression(pInput);
+  
+  if(isNaN(p) || p === 0) {
+    alert('请输入有效的参数p表达式（非零）！'); 
+    return;
+  }
+  
+  saveState(); // 保存状态用于撤销
+  
+  parabolas.push({
+    type: type,
+    p: Math.round(p*10)/10,
+    pExpr: pInput,
+    raw: `抛物线 ${type==='y2'?'y²=2px':'x²=2py'} p=${pInput}`
+  });
+  redraw();
+}
+
+function addHyperbolaByInput() {
+  const xInput = document.getElementById('input-x').value;
+  const yInput = document.getElementById('input-y').value;
+  const aInput = document.getElementById('input-a').value;
+  const bInput = document.getElementById('input-b').value;
+  const dir = document.getElementById('hyperbola-type').value;
+  
+  detectAndAddParameters([xInput, yInput, aInput, bInput]);
+  
+  const x = evaluateExpression(xInput);
+  const y = evaluateExpression(yInput);
+  const a = evaluateExpression(aInput);
+  const b = evaluateExpression(bInput);
+  
+  if(isNaN(x)||isNaN(y)||isNaN(a)||isNaN(b)||a<=0||b<=0) {
+    alert('请输入有效的中心坐标和正数a、b表达式！'); 
+    return;
+  }
+  
+  saveState(); // 保存状态用于撤销
+  
+  hyperbolas.push({
+    x: Math.round(x*10)/10,
+    y: Math.round(y*10)/10,
+    a: Math.round(a*10)/10,
+    b: Math.round(b*10)/10,
+    dir: dir,
+    xExpr: xInput,
+    yExpr: yInput,
+    aExpr: aInput,
+    bExpr: bInput,
+    raw: `双曲线 中心(${xInput},${yInput}) a=${aInput} b=${bInput} ${dir==='x'?'x轴':'y轴'}方向`
+  });
+  redraw();
+}
+
+function addPolarByInput() {
+  let polarStr = document.getElementById('input-polar').value;
+  if(!polarStr) { alert('请输入极坐标方程！'); return; }
+  
+  detectAndAddParameters([polarStr]);
+  
+  // 预处理表达式
+  let expr = polarStr.trim().toLowerCase();
+  if(expr.startsWith('r=')) expr = expr.slice(2);
+  
+  // 替换常见的数学符号
+  expr = expr.replace(/\^/g, '**');
+  
+  saveState(); // 保存状态用于撤销
+  
+  polars.push({
+    expr: expr,
+    raw: polarStr
+  });
+  redraw();
+}
+
+function addFunction() {
+  let funcStr = document.getElementById('input-func').value;
+  if(!funcStr) return;
+  
+  detectAndAddParameters([funcStr]);
+  
+  let expr = funcStr.trim().toLowerCase();
+  if(expr.startsWith('y=')) expr = expr.slice(2);
+  expr = expr.replace(/\^/g, '**')
+             .replace(/sin/g, 'Math.sin')
+             .replace(/cos/g, 'Math.cos')
+             .replace(/tan/g, 'Math.tan')
+             .replace(/exp/g, 'Math.exp')
+             .replace(/log/g, 'Math.log10')
+             .replace(/ln/g, 'Math.log')
+             .replace(/abs/g, 'Math.abs');
+  if(!Math.log10) Math.log10 = x => Math.log(x)/Math.LN10;
+  
+  saveState(); // 保存状态用于撤销
+  
+  functions.push({expr, raw: funcStr});
+  updateIntersections();
+  redraw();
+}
+
+function findOrCreatePoint(x, y) {
+  let pt = points.find(p=>Math.abs(p.x-x)<1e-6 && Math.abs(p.y-y)<1e-6);
+  if(!pt) { pt = {x, y}; points.push(pt); }
+  return pt;
+}
+
+function toggleGrid() {
+  showGrid = document.getElementById('toggle-grid').checked;
+  redraw();
+}
+
+function confirmLine() {
+  if(lineSelectPoints.length === 2 && lineSelectPoints[0] !== lineSelectPoints[1]) {
+    saveState(); // 保存状态用于撤销
+    intersectionLines.push({p1: lineSelectPoints[0], p2: lineSelectPoints[1]});
+  }
+  lineSelectPoints = [];
+  lineSelectActive = false;
+  switchMode('point');
+  redraw();
+}
+
+function cancelLineSelect() {
+  lineSelectPoints = [];
+  lineSelectActive = true;
+  renderInputArea();
+  redraw();
+}
+
+canvas.onmousedown = function(e) {
+  const {x, y} = getMouseMathPos(e);
+  // 点模式下点击画布即添加点
+  if(mode==='point') {
+    saveState(); // 保存状态用于撤销
+    points.push({x: Math.round(x*10)/10, y: Math.round(y*10)/10});
+    updateIntersections();
+    redraw();
+    return;
+  }
+  // 选中点
+  let found = false;
+  for(let i=0;i<points.length;i++) {
+    let pt = points[i];
+    if(dist(pt, {x, y}) < 0.3) {
+      selectedPointIdx = i;
+      draggingPoint = pt;
+      dragOffset.x = pt.x - x;
+      dragOffset.y = pt.y - y;
+      found = true;
+      redraw();
+      // 作直线模式下选择点
+      if(mode==='line' && lineSelectActive && lineSelectPoints.length < 2 && !lineSelectPoints.includes(pt)) {
+        lineSelectPoints.push(pt);
+        renderInputArea();
+        redraw();
+      }
+      return;
+    }
+  }
+  for(let c of circles) {
+    if(dist({x, y}, {x: c.x, y: c.y}) < 0.5) {
+      draggingPoint = c.centerRef;
+      dragOffset.x = c.x - x;
+      dragOffset.y = c.y - y;
+      found = true;
+      break;
+    }
+  }
+  // 作直线：交点也可选
+  if(mode==='line' && lineSelectActive && lineSelectPoints.length < 2) {
+    for(let i=0;i<intersectionPoints.length;i++) {
+      let pt = intersectionPoints[i];
+      if(dist(pt, {x, y}) < 0.3 && !lineSelectPoints.includes(pt)) {
+        lineSelectPoints.push(pt);
+        renderInputArea();
+        redraw();
+        return;
+      }
+    }
+  }
+  if(!found && mode==='move') {
+    if(e.shiftKey) {
+      scalingCanvas = true;
+    } else {
+      draggingCanvas = true;
+    }
+    lastMouse = {x: e.clientX, y: e.clientY};
+    canvas.style.cursor = scalingCanvas ? 'ns-resize' : 'grabbing';
+  }
+};
+
+canvas.onmousemove = function(e) {
+  if(draggingPoint) {
+    const {x, y} = getMouseMathPos(e);
+    draggingPoint.x = Math.round((x + dragOffset.x)*10)/10;
+    draggingPoint.y = Math.round((y + dragOffset.y)*10)/10;
+    for(let c of circles) {
+      if(c.centerRef === draggingPoint) {
+        c.x = draggingPoint.x;
+        c.y = draggingPoint.y;
+      }
+    }
+    updateIntersections();
+    redraw();
+  } else if(draggingCanvas) {
+    let dx = (e.clientX - lastMouse.x)/scale;
+    let dy = (e.clientY - lastMouse.y)/scale;
+    panOffset.x -= dx;
+    panOffset.y += dy;
+    lastMouse = {x: e.clientX, y: e.clientY};
+    redraw();
+  } else if(scalingCanvas) {
+    let dy = (e.clientY - lastMouse.y);
+    let factor = 1 - dy*0.01;
+    let newScale = scale*factor;
+    scale = newScale;
+    lastMouse = {x: e.clientX, y: e.clientY};
+    redraw();
+  }
+};
+
+canvas.onmouseup = function() {
+  draggingPoint = null;
+  if(draggingCanvas || scalingCanvas) {
+    draggingCanvas = false;
+    scalingCanvas = false;
+    canvas.style.cursor = (mode==='point') ? 'crosshair' : (mode==='line' ? 'pointer' : 'grab');
+  }
+};
+
+// 新增：鼠标离开canvas时自动松手
+canvas.addEventListener('mouseleave', function() {
+  draggingCanvas = false;
+  scalingCanvas = false;
+  canvas.style.cursor = (mode==='point') ? 'crosshair' : (mode==='line' ? 'pointer' : 'grab');
+});
+
+function getMouseMathPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  return { x: ((cx-origin.x)/scale + panOffset.x), y: ((origin.y-cy)/scale + panOffset.y) };
+}
+
+function dist(p1, p2) { return Math.hypot(p1.x-p2.x, p1.y-p2.y); }
+
+function resetAll() {
+  if (confirm('确定要重置所有内容吗？此操作不可撤销。')) {
+    saveState(); // 保存状态用于撤销
+    points = [];
+    segments = [];
+    circles = [];
+    ellipses = [];
+    parabolas = [];
+    hyperbolas = [];
+    polars = [];
+    functions = [];
+    intersectionPoints = [];
+    intersectionLines = [];
+    panOffset = {x:0, y:0};
+    scale = 40;
+    selectedPointIdx = null;
+    selectedSegmentIdx = null;
+    selectedCircleIdx = null;
+    selectedFunctionIdx = null;
+    redraw();
+  }
+}
+
+function updateIntersections() {
+  intersectionPoints = [];
+  for(let i=0;i<segments.length;i++){
+    for(let j=i+1;j<segments.length;j++){
+      let pt = segmentIntersection(segments[i], segments[j]);
+      if(pt) intersectionPoints.push(pt);
+    }
+  }
+  for(let seg of segments) {
+    for(let c of circles) {
+      let pts = segmentCircleIntersection(seg, c);
+      pts.forEach(pt=>intersectionPoints.push(pt));
+    }
+  }
+  for(let i=0;i<circles.length;i++){
+    for(let j=i+1;j<circles.length;j++){
+      let pts = circleCircleIntersection(circles[i], circles[j]);
+      pts.forEach(pt=>intersectionPoints.push(pt));
+    }
+  }
+}
+
+function segmentIntersection(s1, s2) {
+  let {x:x1, y:y1} = s1.p1, {x:x2, y:y2} = s1.p2;
+  let {x:x3, y:y3} = s2.p1, {x:x4, y:y4} = s2.p2;
+  let denom = (x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(denom===0) return null;
+  let px = ((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/denom;
+  let py = ((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/denom;
+  if(
+    Math.min(x1,x2)-1e-6<=px && px<=Math.max(x1,x2)+1e-6 &&
+    Math.min(y1,y2)-1e-6<=py && py<=Math.max(y1,y2)+1e-6 &&
+    Math.min(x3,x4)-1e-6<=px && px<=Math.max(x3,x4)+1e-6 &&
+    Math.min(y3,y4)-1e-6<=py && py<=Math.max(y3,y4)+1e-6
+  ) return {x:Math.round(px*10)/10, y:Math.round(py*10)/10};
+  return null;
+}
+
+function segmentCircleIntersection(seg, c) {
+  let {x:x1, y:y1} = seg.p1, {x:x2, y:y2} = seg.p2;
+  let {x:cx, y:cy, r} = c;
+  let dx = x2-x1, dy = y2-y1;
+  let fx = x1-cx, fy = y1-cy;
+  let a = dx*dx+dy*dy;
+  let b = 2*(fx*dx+fy*dy);
+  let c0 = fx*fx+fy*fy-r*r;
+  let D = b*b-4*a*c0;
+  let pts = [];
+  if(D<0) return pts;
+  D = Math.sqrt(D);
+  let t1 = (-b+D)/(2*a), t2 = (-b-D)/(2*a);
+  [t1,t2].forEach(t=>{
+    if(t>=0&&t<=1) {
+      let px = x1+dx*t, py = y1+dy*t;
+      pts.push({x:Math.round(px*10)/10, y:Math.round(py*10)/10});
+    }
+  });
+  return pts;
+}
+
+function circleCircleIntersection(c1, c2) {
+  let {x:x1, y:y1, r:r1} = c1, {x:x2, y:y2, r:r2} = c2;
+  let dx = x2-x1, dy = y2-y1;
+  let d = Math.hypot(dx, dy);
+  if(d>r1+r2||d<Math.abs(r1-r2)||d===0) return [];
+  let a = (r1*r1-r2*r2+d*d)/(2*d);
+  let h = Math.sqrt(r1*r1-a*a);
+  let xm = x1+a*dx/d, ym = y1+a*dy/d;
+  let xs1 = xm+h*dy/d, ys1 = ym-h*dx/d;
+  let xs2 = xm-h*dy/d, ys2 = ym+h*dx/d;
+  return [ {x:Math.round(xs1*10)/10, y:Math.round(ys1*10)/10}, {x:Math.round(xs2*10)/10, y:Math.round(ys2*10)/10} ];
+}
+
+function renderSidebar() {
+  // 点
+  let pointList = document.getElementById('point-list');
+  pointList.innerHTML = '';
+  points.forEach((pt, idx) => {
+    let li = document.createElement('li');
+    let displayX = pt.xExpr || pt.x.toFixed(1);
+    let displayY = pt.yExpr || pt.y.toFixed(1);
+    
+    li.innerHTML = `
+      <span class="item-text">${String.fromCharCode(65+idx)} (${displayX}, ${displayY})</span>
+      <button class="delete-btn" onclick="deletePoint(${idx})" title="删除点">×</button>
+    `;
+    
+    if(selectedPointIdx===idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => { selectedPointIdx = idx; redraw(); };
+    pointList.appendChild(li);
+  });
+  
+  // 线段
+  let segList = document.getElementById('segment-list');
+  segList.innerHTML = '';
+  segments.forEach((seg, idx) => {
+    let i1 = points.indexOf(seg.p1), i2 = points.indexOf(seg.p2);
+    let li = document.createElement('li');
+    li.innerHTML = `
+      <span class="item-text">线段 ${String.fromCharCode(65+i1)}${String.fromCharCode(65+i2)}</span>
+      <button class="delete-btn" onclick="deleteSegment(${idx})" title="删除线段">×</button>
+    `;
+    segList.appendChild(li);
+  });
+  
+  // 直线
+  let lineList = document.getElementById('line-list');
+  lineList.innerHTML = '';
+  intersectionLines.forEach((line, idx) => {
+    let eq = getLineEquation(line.p1, line.p2);
+    let i1 = points.indexOf(line.p1), i2 = points.indexOf(line.p2);
+    let label = '';
+    if(i1>=0 && i2>=0) label = `直线 ${String.fromCharCode(65+i1)}${String.fromCharCode(65+i2)}`;
+    else label = `直线 (${line.p1.x.toFixed(1)},${line.p1.y.toFixed(1)})-(${line.p2.x.toFixed(1)},${line.p2.y.toFixed(1)})`;
+    
+    let li = document.createElement('li');
+    li.innerHTML = `
+      <span class="item-text">${label} ${eq}</span>
+      <button class="delete-btn" onclick="deleteLine(${idx})" title="删除直线">×</button>
+    `;
+    lineList.appendChild(li);
+  });
+  
+  // 圆
+  let circleList = document.getElementById('circle-list');
+  circleList.innerHTML = '';
+  circles.forEach((c, idx) => {
+    let rDisplay = c.rExpr || c.r.toFixed(1);
+    let li = document.createElement('li');
+    // 圆编号 O₁、O₂、O₃ ...
+    let circleNum = idx + 1;
+    li.innerHTML = `
+      <span class="item-text">圆 O<sub>${circleNum}</sub> (r=${rDisplay})</span>
+      <button class="delete-btn" onclick="deleteCircle(${idx})" title="删除圆">×</button>
+    `;
+    circleList.appendChild(li);
+  });
+  
+  // 函数/方程
+  let funcList = document.getElementById('function-list');
+  funcList.innerHTML = '';
+  
+  // 函数/方程编号 f₁(x)、f₂(x)...
+  functions.forEach((f, idx) => {
+    let li = document.createElement('li');
+    let funcNum = idx + 1;
+    let display = '';
+    if (f.raw && /^y\s*=/.test(f.raw.trim())) {
+      display = `f<sub>${funcNum}</sub>(x) = ${f.raw.trim().replace(/^y\s*=/, '')}`;
+    } else if (f.raw && /^x\s*=/.test(f.raw.trim())) {
+      display = `f<sub>${funcNum}</sub>(y) = ${f.raw.trim().replace(/^x\s*=/, '')}`;
+    } else if (f.raw) {
+      display = `f<sub>${funcNum}</sub>: ${f.raw}`;
+    } else {
+      display = `f<sub>${funcNum}</sub>(x)`;
+    }
+    li.innerHTML = `
+      <span class="item-text">${display}</span>
+      <button class="delete-btn" onclick="deleteFunction(${idx})" title="删除函数">×</button>
+    `;
+    if(selectedFunctionIdx === idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => { selectedFunctionIdx = idx; redraw(); };
+    funcList.appendChild(li);
+  });
+  
+  // 椭圆
+  ellipses.forEach((e, idx) => {
+    let li = document.createElement('li');
+    li.innerHTML = `
+      <span class="item-text">${e.raw || '椭圆'}</span>
+      <button class="delete-btn" onclick="deleteEllipse(${idx})" title="删除椭圆">×</button>
+    `;
+    funcList.appendChild(li);
+  });
+  
+  // 抛物线
+  parabolas.forEach((p, idx) => {
+    let li = document.createElement('li');
+    li.innerHTML = `
+      <span class="item-text">${p.raw || '抛物线'}</span>
+      <button class="delete-btn" onclick="deleteParabola(${idx})" title="删除抛物线">×</button>
+    `;
+    funcList.appendChild(li);
+  });
+  
+  // 双曲线
+  hyperbolas.forEach((h, idx) => {
+    let li = document.createElement('li');
+    li.innerHTML = `
+      <span class="item-text">${h.raw || '双曲线'}</span>
+      <button class="delete-btn" onclick="deleteHyperbola(${idx})" title="删除双曲线">×</button>
+    `;
+    funcList.appendChild(li);
+  });
+  
+  // 极坐标
+  polars.forEach((p, idx) => {
+    let li = document.createElement('li');
+    li.innerHTML = `
+      <span class="item-text">${p.raw || '极坐标'}</span>
+      <button class="delete-btn" onclick="deletePolar(${idx})" title="删除极坐标曲线">×</button>
+    `;
+    funcList.appendChild(li);
+  });
+}
+
+// 初始化
+switchMode('point');
+renderParameterControls();
+updateIntersections();
+redraw();
+
+// 键盘事件监听
+document.addEventListener('keydown', function(e) {
+  // Ctrl+Z 撤销
+  if (e.ctrlKey && e.key === 'z') {
+    e.preventDefault();
+    undo();
+  }
+});
+
+// 全屏按钮JS
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+fullscreenBtn.onclick = function() {
+  const el = document.documentElement;
+  if (!document.fullscreenElement) {
+    el.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+};
+
+document.addEventListener('fullscreenchange', function() {
+  if(document.fullscreenElement) {
+    fullscreenBtn.innerText = '⛶';
+    fullscreenBtn.title = '退出全屏';
+  } else {
+    fullscreenBtn.innerText = '⛶';
+    fullscreenBtn.title = '全屏';
+  }
+});
+
+// 单个参数重置为0
+function resetParameter(name) {
+  if (parameters.hasOwnProperty(name)) {
+    parameters[name] = 0;
+    renderParameterControls();
+    redraw();
+  }
+}
+
+// 视角复位按钮逻辑
+document.getElementById('reset-view-btn').onclick = function() {
+  panOffset = {x:0, y:0};
+  scale = 40;
+  redraw();
+};
+</script>
+</body>
+</html>
