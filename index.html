@@ -2,16 +2,95 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, orientation=landscape">
   <title>含参函数解析几何教学工具</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f8f8f8; margin:0; }
-    .container { display: flex; height: 100vh; }
+    body { 
+      font-family: Arial, sans-serif; 
+      background: #f8f8f8; 
+      margin:0; 
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    .container { 
+      display: flex; 
+      height: 100vh; 
+      min-height: 100vh;
+      position: relative;
+    }
     .sidebar {
-      width: 320px;
+      width: 280px;
       background: #f4f6fa;
       border-right: 1px solid #ddd;
-      padding: 18px 10px 10px 18px;
+      padding: 12px 8px 8px 12px;
       overflow-y: auto;
+      font-size: 14px;
+      transition: transform 0.3s ease;
+    }
+    
+    /* 移动端适配 */
+    @media screen and (max-width: 768px) {
+      .container {
+        flex-direction: row;
+        position: relative;
+      }
+      .sidebar {
+        width: 240px;
+        padding: 8px 6px 6px 8px;
+        font-size: 12px;
+        z-index: 1000;
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        transform: translateX(-100%);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+      }
+      .sidebar.show {
+        transform: translateX(0);
+      }
+      .main {
+        width: 100%;
+        margin-left: 0;
+      }
+      .toolbar {
+        padding: 8px 0 6px 40px !important;
+        font-size: 14px;
+      }
+      .toolbar button {
+        font-size: 14px !important;
+        padding: 4px 12px !important;
+        margin: 0 3px 0 0 !important;
+      }
+      #canvas {
+        margin: 12px auto 0 auto !important;
+      }
+    }
+    
+    /* 手机横屏优化 */
+    @media screen and (max-width: 768px) and (orientation: landscape) {
+      .sidebar {
+        width: 220px;
+        padding: 6px 4px 4px 6px;
+        font-size: 11px;
+      }
+      .parameter-control {
+        padding: 8px !important;
+        margin: 4px 0 !important;
+      }
+      .parameter-item {
+        margin: 4px 0 !important;
+      }
+      .toolbar {
+        padding: 6px 0 4px 40px !important;
+      }
+      .toolbar button {
+        font-size: 12px !important;
+        padding: 3px 8px !important;
+      }
     }
     .sidebar h3 { margin: 10px 0 6px 0; font-size: 18px; color: #3498db; }
     .sidebar ul { list-style: none; padding: 0; margin: 0 0 10px 0; }
@@ -218,8 +297,55 @@
       </div>
     </div>
     <button id="fullscreen-btn" title="全屏" style="position:fixed;top:16px;right:24px;z-index:1000;background:#fff;border:1px solid #ccc;border-radius:6px;padding:6px 14px;font-size:18px;cursor:pointer;transition:box-shadow 0.2s;">⛶</button>
+    <button id="export-image-btn" title="导出为图片" style="position:fixed;top:16px;right:180px;z-index:1000;background:#fff;border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:14px;cursor:pointer;transition:box-shadow 0.2s;">导出图片</button>
+    <select id="export-bg-select" title="导出背景" style="position:fixed;top:16px;right:110px;z-index:1000;background:#fff;border:1px solid #ccc;border-radius:6px;padding:6px 6px;font-size:14px;cursor:pointer;">
+      <option value="white">白底</option>
+      <option value="transparent">透明</option>
+    </select>
+    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰ 菜单</button>
+    <div class="mobile-overlay" onclick="hideMobileMenu()"></div>
     <style>
     #fullscreen-btn:hover { box-shadow:0 2px 8px #aaa; }
+    
+    /* 移动端菜单按钮 */
+    .mobile-menu-btn {
+      display: none;
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 1001;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      touch-action: manipulation;
+    }
+    
+    @media screen and (max-width: 768px) {
+      .mobile-menu-btn {
+        display: block;
+      }
+    }
+    
+    /* 移动端遮罩 */
+    .mobile-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+    }
+    
+    .mobile-overlay.show {
+      display: block;
+    }
     </style>
   </div>
 </div>
@@ -552,6 +678,107 @@ function generateTransformedEquation(curve) {
     
     curve.transformedEquation = equation;
   }
+}
+
+// 椭圆： (x-h)^2/a^2 + (y-k)^2/b^2 = 1
+function generateTransformedEquationEllipse(e) {
+  const dx = (e.dragOffset && e.dragOffset.x) || 0;
+  const dy = (e.dragOffset && e.dragOffset.y) || 0;
+  const x0 = (typeof e.x === 'number') ? e.x : 0;
+  const y0 = (typeof e.y === 'number') ? e.y : 0;
+  const a = e.a;
+  const b = e.b;
+  const cx = (x0 + dx).toFixed(1);
+  const cy = (y0 + dy).toFixed(1);
+  const a2 = (a*a).toFixed(1);
+  const b2 = (b*b).toFixed(1);
+  e.transformedEquation = `(x-${cx})^2/${a2} + (y-${cy})^2/${b2} = 1`;
+}
+
+// 圆： (x-h)^2 + (y-k)^2 = r^2
+function generateTransformedEquationCircle(c) {
+  const dx = (c.dragOffset && c.dragOffset.x) || 0;
+  const dy = (c.dragOffset && c.dragOffset.y) || 0;
+  const x0 = (typeof c.x === 'number') ? c.x : 0;
+  const y0 = (typeof c.y === 'number') ? c.y : 0;
+  const r2 = (c.r*c.r).toFixed(1);
+  const cx = (x0 + dx).toFixed(1);
+  const cy = (y0 + dy).toFixed(1);
+  c.transformedEquation = `(x-${cx})^2 + (y-${cy})^2 = ${r2}`;
+}
+
+// 双曲线： 根据方向
+function generateTransformedEquationHyperbola(hb) {
+  const dx = (hb.dragOffset && hb.dragOffset.x) || 0;
+  const dy = (hb.dragOffset && hb.dragOffset.y) || 0;
+  const x0 = (typeof hb.x === 'number') ? hb.x : 0;
+  const y0 = (typeof hb.y === 'number') ? hb.y : 0;
+  const a2 = (hb.a*hb.a).toFixed(1);
+  const b2 = (hb.b*hb.b).toFixed(1);
+  const cx = (x0 + dx).toFixed(1);
+  const cy = (y0 + dy).toFixed(1);
+  if (hb.dir === 'x') {
+    hb.transformedEquation = `(x-${cx})^2/${a2} - (y-${cy})^2/${b2} = 1`;
+  } else {
+    hb.transformedEquation = `(y-${cy})^2/${a2} - (x-${cx})^2/${b2} = 1`;
+  }
+}
+
+// 一般函数：输出平移后的解析式（保持原有"y="或"x="的形式）
+function generateTransformedEquationFunction(f) {
+  const dx = (f.dragOffset && f.dragOffset.x) || 0;
+  const dy = (f.dragOffset && f.dragOffset.y) || 0;
+  const h = +dx.toFixed(1);
+  const k = +dy.toFixed(1);
+  const raw = (f.raw || '').trim();
+
+  // 帮助函数：格式化带符号的常数，0 则为空
+  const signed = (v) => {
+    if (Math.abs(v) < 1e-9) return '';
+    return (v > 0 ? ' + ' : ' - ') + Math.abs(v).toFixed(1);
+  };
+
+  // y = g(x)
+  if (/^y\s*=/.test(raw)) {
+    let rhs = raw.replace(/^y\s*=\s*/, '');
+    // 将所有 x 替换为 (x-h)
+    const hStr = (Math.abs(h) < 1e-9) ? 'x' : `(x-${h.toFixed(1)})`;
+    // 注意：避免替换函数名里的 x，例如 max、exp；使用\bx\b 边界
+    rhs = rhs.replace(/\bx\b/g, hStr);
+    // y 平移增加 k
+    f.transformedEquation = `y = ${rhs}${signed(k)}`;
+    return;
+  }
+
+  // x = g(y)
+  if (/^x\s*=/.test(raw)) {
+    let rhs = raw.replace(/^x\s*=\s*/, '');
+    const kStr = (Math.abs(k) < 1e-9) ? 'y' : `(y-${k.toFixed(1)})`;
+    rhs = rhs.replace(/\by\b/g, kStr);
+    f.transformedEquation = `x = ${rhs}${signed(h)}`;
+    return;
+  }
+
+  // 其他情况，默认按 y = expr 处理
+  if (raw) {
+    let rhs = raw;
+    const hStr = (Math.abs(h) < 1e-9) ? 'x' : `(x-${h.toFixed(1)})`;
+    rhs = rhs.replace(/\bx\b/g, hStr);
+    f.transformedEquation = `y = ${rhs}${signed(k)}`;
+    return;
+  }
+
+  // 如果无 raw，则回退
+  f.transformedEquation = null;
+}
+
+// 极坐标：标注笛卡尔平移规则
+function generateTransformedEquationPolar(p) {
+  const dx = (p.dragOffset && p.dragOffset.x) || 0;
+  const dy = (p.dragOffset && p.dragOffset.y) || 0;
+  const h = dx.toFixed(1);
+  const k = dy.toFixed(1);
+  p.transformedEquation = `x = r(θ)cosθ ${dx>=0?'+':'-'} ${Math.abs(h)}, y = r(θ)sinθ ${dy>=0?'+':'-'} ${Math.abs(k)}`;
 }
 
 function addParameter(name, value = 1, min = -10, max = 10, step = 0.1) {
@@ -1288,17 +1515,27 @@ function drawCircles() {
       y = c.y;
       r = c.r;
     }
-    ctx.beginPath();
-    ctx.arc(toCanvasX(x), toCanvasY(y), Math.abs(r)*scale, 0, 2*Math.PI);
+
+    // 应用拖动偏移
+    const offsetX = c.dragOffset ? c.dragOffset.x : 0;
+    const offsetY = c.dragOffset ? c.dragOffset.y : 0;
+    const cx = x + offsetX;
+    const cy = y + offsetY;
+
+    // 样式：选中橙色、拖动过绿色、默认绿色
     if(selectedCircleIdx === idx) {
       ctx.strokeStyle = '#f90';
       ctx.lineWidth = 4;
     } else {
-      ctx.strokeStyle = '#27ae60';
+      ctx.strokeStyle = c.isDragged ? '#27ae60' : '#27ae60';
       ctx.lineWidth = 2;
     }
+
+    ctx.beginPath();
+    ctx.arc(toCanvasX(cx), toCanvasY(cy), Math.abs(r)*scale, 0, 2*Math.PI);
     ctx.stroke();
-    // 更新圆的实际属性
+
+    // 更新圆的实际属性（不覆盖表达式，仅用于其他功能）
     c.x = x;
     c.y = y;
     c.r = r;
@@ -1308,9 +1545,7 @@ function drawCircles() {
 
 function drawEllipses() {
   ctx.save();
-  ctx.strokeStyle = '#2980b9';
-  ctx.lineWidth = 2;
-  ellipses.forEach(e => {
+  ellipses.forEach((e, idx) => {
     // 计算参数化属性
     let x, y, a, b;
     try {
@@ -1331,11 +1566,19 @@ function drawEllipses() {
       a = e.a;
       b = e.b;
     }
+
+    // 偏移
+    const offsetX = e.dragOffset ? e.dragOffset.x : 0;
+    const offsetY = e.dragOffset ? e.dragOffset.y : 0;
+    
+    // 高亮
+    ctx.strokeStyle = (selectedEllipseIdx === idx) ? '#f90' : (e.isDragged ? '#27ae60' : '#2980b9');
+    ctx.lineWidth = (selectedEllipseIdx === idx) ? 4 : 2;
     
     ctx.beginPath();
     for(let t=0;t<=2*Math.PI+0.01;t+=0.01) {
-      let px = x + a * Math.cos(t);
-      let py = y + b * Math.sin(t);
+      let px = (x + offsetX) + a * Math.cos(t);
+      let py = (y + offsetY) + b * Math.sin(t);
       let cx = toCanvasX(px), cy = toCanvasY(py);
       if(t===0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
     }
@@ -1352,6 +1595,9 @@ function drawFunctions() {
     try {
       let xMin = toMathX(0), xMax = toMathX(width);
       let step = Math.max(0.01, (xMax-xMin)/1000);
+      const offsetX = fobj.dragOffset ? fobj.dragOffset.x : 0;
+      const offsetY = fobj.dragOffset ? fobj.dragOffset.y : 0;
+
       ctx.save();
       ctx.beginPath();
       let first = true;
@@ -1359,22 +1605,22 @@ function drawFunctions() {
         let y;
         try { y = eval(expr); } catch { continue; }
         if(typeof y !== 'number' || !isFinite(y)) continue;
-        let px = toCanvasX(x);
-        let py = toCanvasY(y);
+        let px = toCanvasX(x + offsetX);
+        let py = toCanvasY(y + offsetY);
         if(first) { ctx.moveTo(px, py); first = false; }
         else ctx.lineTo(px, py);
       }
+
+      // 高亮
       if(selectedFunctionIdx === idx) {
-        ctx.strokeStyle = '#f90'; // 橙色，与点高亮一致
+        ctx.strokeStyle = '#f90';
         ctx.lineWidth = 4;
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
       } else {
-        ctx.strokeStyle = '#e67e22';
+        ctx.strokeStyle = fobj.isDragged ? '#27ae60' : '#e67e22';
         ctx.lineWidth = 2;
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
       }
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
       ctx.stroke();
       ctx.restore();
     } catch {}
@@ -1639,9 +1885,7 @@ function drawParabolas() {
 
 function drawHyperbolas() {
   ctx.save();
-  ctx.strokeStyle = '#e67e22';
-  ctx.lineWidth = 2;
-  hyperbolas.forEach(hb => {
+  hyperbolas.forEach((hb, idx) => {
     // 计算参数化属性
     let x, y, a, b;
     try {
@@ -1662,15 +1906,21 @@ function drawHyperbolas() {
       a = hb.a;
       b = hb.b;
     }
-    
+
+    const offsetX = hb.dragOffset ? hb.dragOffset.x : 0;
+    const offsetY = hb.dragOffset ? hb.dragOffset.y : 0;
+
+    ctx.strokeStyle = (selectedHyperbolaIdx === idx) ? '#f90' : (hb.isDragged ? '#27ae60' : '#e67e22');
+    ctx.lineWidth = (selectedHyperbolaIdx === idx) ? 4 : 2;
+
     if(hb.dir==='x') {
       // x²/a² - y²/b² = 1
       // 右支
       ctx.beginPath();
       let first = true;
       for(let t=-4;t<=4;t+=0.02) {
-        let px = x + a*Math.cosh(t);
-        let py = y + b*Math.sinh(t);
+        let px = (x + offsetX) + a*Math.cosh(t);
+        let py = (y + offsetY) + b*Math.sinh(t);
         let cx = toCanvasX(px), cy = toCanvasY(py);
         if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
       }
@@ -1680,8 +1930,8 @@ function drawHyperbolas() {
       ctx.beginPath();
       first = true;
       for(let t=-4;t<=4;t+=0.02) {
-        let px = x - a*Math.cosh(t);
-        let py = y + b*Math.sinh(t);
+        let px = (x + offsetX) - a*Math.cosh(t);
+        let py = (y + offsetY) + b*Math.sinh(t);
         let cx = toCanvasX(px), cy = toCanvasY(py);
         if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
       }
@@ -1692,8 +1942,8 @@ function drawHyperbolas() {
       ctx.beginPath();
       let first = true;
       for(let t=-4;t<=4;t+=0.02) {
-        let py = y + a*Math.cosh(t);
-        let px = x + b*Math.sinh(t);
+        let py = (y + offsetY) + a*Math.cosh(t);
+        let px = (x + offsetX) + b*Math.sinh(t);
         let cx = toCanvasX(px), cy = toCanvasY(py);
         if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
       }
@@ -1703,8 +1953,8 @@ function drawHyperbolas() {
       ctx.beginPath();
       first = true;
       for(let t=-4;t<=4;t+=0.02) {
-        let py = y - a*Math.cosh(t);
-        let px = x + b*Math.sinh(t);
+        let py = (y + offsetY) - a*Math.cosh(t);
+        let px = (x + offsetX) + b*Math.sinh(t);
         let cx = toCanvasX(px), cy = toCanvasY(py);
         if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
       }
@@ -1716,12 +1966,13 @@ function drawHyperbolas() {
 
 function drawPolars() {
   ctx.save();
-  ctx.strokeStyle = '#16a085';
-  ctx.lineWidth = 2;
   polars.forEach(pobj => {
     let expr = substituteParameters(pobj.expr);
     ctx.beginPath();
     let first = true;
+    const offsetX = pobj.dragOffset ? pobj.dragOffset.x : 0;
+    const offsetY = pobj.dragOffset ? pobj.dragOffset.y : 0;
+
     for(let theta=0;theta<=4*Math.PI;theta+=0.01) { // 增加绘制范围
       let r;
       try { 
@@ -1739,10 +1990,12 @@ function drawPolars() {
         r = eval(evalExpr); 
       } catch { continue; }
       if(typeof r !== 'number' || !isFinite(r)) continue;
-      let x = r*Math.cos(theta), y = r*Math.sin(theta);
+      let x = r*Math.cos(theta) + offsetX, y = r*Math.sin(theta) + offsetY;
       let cx = toCanvasX(x), cy = toCanvasY(y);
       if(first) { ctx.moveTo(cx, cy); first=false; } else ctx.lineTo(cx, cy);
     }
+    ctx.strokeStyle = pobj.isDragged ? '#27ae60' : '#16a085';
+    ctx.lineWidth = 2;
     ctx.stroke();
   });
   ctx.restore();
@@ -2052,8 +2305,28 @@ function cancelLineSelect() {
   redraw();
 }
 
+// 触摸事件变量
+let touchStartTime = 0;
+let lastTouchPos = {x: 0, y: 0};
+let isTouch = false;
+
+// 获取事件位置（兼容鼠标和触摸）
+function getEventPos(e) {
+  if (e.touches && e.touches.length > 0) {
+    return {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY};
+  }
+  return {clientX: e.clientX, clientY: e.clientY};
+}
+
 canvas.onmousedown = function(e) {
-  const {x, y} = getMouseMathPos(e);
+  isTouch = e.type.includes('touch');
+  if (isTouch) {
+    touchStartTime = Date.now();
+    e.preventDefault(); // 防止触摸滚动
+  }
+  
+  const eventPos = getEventPos(e);
+  const {x, y} = getMouseMathPos({clientX: eventPos.clientX, clientY: eventPos.clientY});
   
   // 点模式下点击画布即添加点
   if(mode==='point') {
@@ -2071,7 +2344,7 @@ canvas.onmousedown = function(e) {
     } else {
       draggingCanvas = true;
     }
-    lastMouse = {x: e.clientX, y: e.clientY};
+    lastMouse = {x: eventPos.clientX, y: eventPos.clientY};
     canvas.style.cursor = scalingCanvas ? 'ns-resize' : 'grabbing';
     return;
   }
@@ -2105,43 +2378,120 @@ canvas.onmousedown = function(e) {
   // 选中圆心
   if(mode==='drag') {
     for(let c of circles) {
-      if(dist({x, y}, {x: c.x, y: c.y}) < 0.5) {
-        draggingPoint = c.centerRef;
-        dragOffset.x = c.x - x;
-        dragOffset.y = c.y - y;
+      // 命中检测圆心
+      const cx = (c.x || 0) + (c.dragOffset ? c.dragOffset.x : 0);
+      const cy = (c.y || 0) + (c.dragOffset ? c.dragOffset.y : 0);
+      if(dist({x, y}, {x: cx, y: cy}) < 0.5) {
+        draggingPoint = c; // 使用c作为拖动对象（非点）
+        dragOffset.x = cx - x;
+        dragOffset.y = cy - y;
+        draggingPoint._isCircleCenter = true; // 标记
         found = true;
         break;
       }
     }
   }
   
-  // 选中曲线进行拖动
+  // 选中曲线进行拖动（优先使用侧边栏选择）
   if(mode==='drag' && !found) {
-    // 检测抛物线
-    for(let i = 0; i < parabolas.length; i++) {
-      if(isPointNearParabola({x, y}, parabolas[i])) {
-        draggingCurve = parabolas[i];
-        curveType = 'parabola';
-        selectedParabolaIdx = i;
-        
-        // 记录初始拖动位置和当前偏移
-        dragOffset.x = x;
-        dragOffset.y = y;
-        dragOffset.initialOffsetX = parabolas[i].dragOffset ? parabolas[i].dragOffset.x : 0;
-        dragOffset.initialOffsetY = parabolas[i].dragOffset ? parabolas[i].dragOffset.y : 0;
-        
-        // 记录初始状态
-        if (!parabolas[i].originalState) {
-          parabolas[i].originalState = {
-            p: parabolas[i].p,
-            pExpr: parabolas[i].pExpr,
-            type: parabolas[i].type,
-            raw: parabolas[i].raw
-          };
+    if (selectedCircleIdx !== null && circles[selectedCircleIdx]) {
+      // 侧栏选择的圆，直接拖动
+      const c = circles[selectedCircleIdx];
+      draggingCurve = c;
+      curveType = 'circle';
+      dragOffset.x = x;
+      dragOffset.y = y;
+      dragOffset.initialOffsetX = c.dragOffset ? c.dragOffset.x : 0;
+      dragOffset.initialOffsetY = c.dragOffset ? c.dragOffset.y : 0;
+      if (!c.originalState) {
+        c.originalState = { x: c.x, y: c.y, r: c.r };
+      }
+      found = true;
+      redraw();
+    } else if (selectedParabolaIdx !== null && parabolas[selectedParabolaIdx]) {
+      // 如果侧边栏已选择抛物线，直接进入拖动
+      draggingCurve = parabolas[selectedParabolaIdx];
+      curveType = 'parabola';
+      const pb = draggingCurve;
+      dragOffset.x = x;
+      dragOffset.y = y;
+      dragOffset.initialOffsetX = pb.dragOffset ? pb.dragOffset.x : 0;
+      dragOffset.initialOffsetY = pb.dragOffset ? pb.dragOffset.y : 0;
+      if (!pb.originalState) {
+        pb.originalState = { p: pb.p, pExpr: pb.pExpr, type: pb.type, raw: pb.raw };
+      }
+      found = true;
+      redraw();
+    } else if (selectedEllipseIdx !== null && ellipses[selectedEllipseIdx]) {
+      draggingCurve = ellipses[selectedEllipseIdx];
+      curveType = 'ellipse';
+      const el = draggingCurve;
+      dragOffset.x = x;
+      dragOffset.y = y;
+      dragOffset.initialOffsetX = el.dragOffset ? el.dragOffset.x : 0;
+      dragOffset.initialOffsetY = el.dragOffset ? el.dragOffset.y : 0;
+      if (!el.originalState) {
+        el.originalState = { x: el.x, y: el.y, a: el.a, b: el.b, raw: el.raw };
+      }
+      found = true;
+      redraw();
+    } else if (selectedHyperbolaIdx !== null && hyperbolas[selectedHyperbolaIdx]) {
+      draggingCurve = hyperbolas[selectedHyperbolaIdx];
+      curveType = 'hyperbola';
+      const hb = draggingCurve;
+      dragOffset.x = x;
+      dragOffset.y = y;
+      dragOffset.initialOffsetX = hb.dragOffset ? hb.dragOffset.x : 0;
+      dragOffset.initialOffsetY = hb.dragOffset ? hb.dragOffset.y : 0;
+      if (!hb.originalState) {
+        hb.originalState = { x: hb.x, y: hb.y, a: hb.a, b: hb.b, dir: hb.dir, raw: hb.raw };
+      }
+      found = true;
+      redraw();
+    } else if (selectedPolarIdx !== null && polars[selectedPolarIdx]) {
+      draggingCurve = polars[selectedPolarIdx];
+      curveType = 'polar';
+      const po = draggingCurve;
+      dragOffset.x = x;
+      dragOffset.y = y;
+      dragOffset.initialOffsetX = po.dragOffset ? po.dragOffset.x : 0;
+      dragOffset.initialOffsetY = po.dragOffset ? po.dragOffset.y : 0;
+      if (!po.originalState) {
+        po.originalState = { expr: po.expr, raw: po.raw };
+      }
+      found = true;
+      redraw();
+    } else if (selectedFunctionIdx !== null && functions[selectedFunctionIdx]) {
+      draggingCurve = functions[selectedFunctionIdx];
+      curveType = 'function';
+      const fu = draggingCurve;
+      dragOffset.x = x;
+      dragOffset.y = y;
+      dragOffset.initialOffsetX = fu.dragOffset ? fu.dragOffset.x : 0;
+      dragOffset.initialOffsetY = fu.dragOffset ? fu.dragOffset.y : 0;
+      if (!fu.originalState) {
+        fu.originalState = { expr: fu.expr, raw: fu.raw };
+      }
+      found = true;
+      redraw();
+    } else {
+      // 未在侧边栏选择时，尝试基于命中检测选择（仅抛物线保持）
+      for(let i = 0; i < parabolas.length; i++) {
+        if(isPointNearParabola({x, y}, parabolas[i])) {
+          draggingCurve = parabolas[i];
+          curveType = 'parabola';
+          selectedParabolaIdx = i; // 同步侧边栏选择状态
+          dragOffset.x = x;
+          dragOffset.y = y;
+          dragOffset.initialOffsetX = parabolas[i].dragOffset ? parabolas[i].dragOffset.x : 0;
+          dragOffset.initialOffsetY = parabolas[i].dragOffset ? parabolas[i].dragOffset.y : 0;
+          if (!parabolas[i].originalState) {
+            parabolas[i].originalState = { p: parabolas[i].p, pExpr: parabolas[i].pExpr, type: parabolas[i].type, raw: parabolas[i].raw };
+          }
+          found = true;
+          redraw();
+          break;
         }
-        found = true;
-        redraw();
-        break;
       }
     }
   }
@@ -2161,8 +2511,22 @@ canvas.onmousedown = function(e) {
 };
 
 canvas.onmousemove = function(e) {
+  const eventPos = getEventPos(e);
   if(draggingPoint) {
-    const {x, y} = getMouseMathPos(e);
+    const {x, y} = getMouseMathPos({clientX: eventPos.clientX, clientY: eventPos.clientY});
+    if (draggingPoint._isCircleCenter) {
+      // 拖动圆：更新dragOffset
+      const c = draggingPoint;
+      const newCx = Math.round((x + dragOffset.x)*10)/10;
+      const newCy = Math.round((y + dragOffset.y)*10)/10;
+      const dx = newCx - (c.x || 0);
+      const dy = newCy - (c.y || 0);
+      c.dragOffset = {x: dx, y: dy};
+      c.isDragged = true;
+      generateTransformedEquationCircle(c);
+      redraw();
+      return;
+    }
     draggingPoint.x = Math.round((x + dragOffset.x)*10)/10;
     draggingPoint.y = Math.round((y + dragOffset.y)*10)/10;
     
@@ -2183,7 +2547,7 @@ canvas.onmousemove = function(e) {
     updateIntersections();
     redraw();
   } else if(draggingCurve) {
-    const {x, y} = getMouseMathPos(e);
+    const {x, y} = getMouseMathPos({clientX: eventPos.clientX, clientY: eventPos.clientY});
     
     if(curveType === 'parabola') {
       // 计算相对于初始点击位置的偏移量
@@ -2196,22 +2560,32 @@ canvas.onmousemove = function(e) {
       
       // 生成平移后的方程
       generateTransformedEquation(draggingCurve);
+    } else if (curveType === 'ellipse' || curveType === 'hyperbola' || curveType === 'polar' || curveType === 'function' || curveType === 'circle') {
+      const dx = (x - dragOffset.x) + dragOffset.initialOffsetX;
+      const dy = (y - dragOffset.y) + dragOffset.initialOffsetY;
+      draggingCurve.isDragged = true;
+      draggingCurve.dragOffset = {x: dx, y: dy};
+      if (curveType === 'ellipse') generateTransformedEquationEllipse(draggingCurve);
+      if (curveType === 'hyperbola') generateTransformedEquationHyperbola(draggingCurve);
+      if (curveType === 'polar') generateTransformedEquationPolar(draggingCurve);
+      if (curveType === 'function') generateTransformedEquationFunction(draggingCurve);
+      if (curveType === 'circle') generateTransformedEquationCircle(draggingCurve);
     }
     
     redraw();
   } else if(draggingCanvas) {
-    let dx = (e.clientX - lastMouse.x)/scale;
-    let dy = (e.clientY - lastMouse.y)/scale;
+    let dx = (eventPos.clientX - lastMouse.x)/scale;
+    let dy = (eventPos.clientY - lastMouse.y)/scale;
     panOffset.x -= dx;
     panOffset.y += dy;
-    lastMouse = {x: e.clientX, y: e.clientY};
+    lastMouse = {x: eventPos.clientX, y: eventPos.clientY};
     redraw();
   } else if(scalingCanvas) {
-    let dy = (e.clientY - lastMouse.y);
+    let dy = (eventPos.clientY - lastMouse.y);
     let factor = 1 - dy*0.01;
     let newScale = scale*factor;
     scale = newScale;
-    lastMouse = {x: e.clientX, y: e.clientY};
+    lastMouse = {x: eventPos.clientX, y: eventPos.clientY};
     redraw();
   }
 };
@@ -2238,6 +2612,11 @@ canvas.onmouseup = function() {
     }
   }
 };
+
+// 添加触摸事件支持
+canvas.addEventListener('touchstart', canvas.onmousedown, {passive: false});
+canvas.addEventListener('touchmove', canvas.onmousemove, {passive: false});
+canvas.addEventListener('touchend', canvas.onmouseup, {passive: false});
 
 // 新增：鼠标离开canvas时自动松手
 canvas.addEventListener('mouseleave', function() {
@@ -2498,8 +2877,12 @@ function renderSidebar() {
     let li = document.createElement('li');
     // 圆编号 O₁、O₂、O₃ ...
     let circleNum = idx + 1;
+    let display = `圆 O<sub>${circleNum}</sub> (r=${rDisplay})`;
+    if (c.isDragged && c.transformedEquation) {
+      display += `<br><span style="color: #27ae60; font-size: 12px;">→ ${c.transformedEquation}</span>`;
+    }
     li.innerHTML = `
-      <span class="item-text">圆 O<sub>${circleNum}</sub> (r=${rDisplay})</span>
+      <span class="item-text">${display}</span>
       <button class="delete-btn" onclick="deleteCircle(${idx})" title="删除圆">×</button>
     `;
     if(selectedCircleIdx === idx) li.classList.add('selected');
@@ -2508,6 +2891,7 @@ function renderSidebar() {
         selectedCircleIdx = null;
       } else {
         selectedCircleIdx = idx;
+        switchMode('drag');
       }
       redraw();
     };
@@ -2532,22 +2916,47 @@ function renderSidebar() {
     } else {
       display = `f<sub>${funcNum}</sub>(x)`;
     }
+    if (f.isDragged && f.transformedEquation) {
+      display += `<br><span style="color: #27ae60; font-size: 12px;">→ ${f.transformedEquation}</span>`;
+    }
     li.innerHTML = `
       <span class="item-text">${display}</span>
       <button class="delete-btn" onclick="deleteFunction(${idx})" title="删除函数">×</button>
     `;
     if(selectedFunctionIdx === idx) li.classList.add('selected');
-    li.querySelector('.item-text').onclick = () => { selectedFunctionIdx = idx; redraw(); };
+    li.querySelector('.item-text').onclick = () => {
+      if (selectedFunctionIdx === idx) {
+        selectedFunctionIdx = null;
+      } else {
+        selectedFunctionIdx = idx;
+        switchMode('drag');
+      }
+      redraw();
+    };
     funcList.appendChild(li);
   });
   
   // 椭圆
   ellipses.forEach((e, idx) => {
     let li = document.createElement('li');
+    let display = e.raw || '椭圆';
+    if (e.isDragged && e.transformedEquation) {
+      display += `<br><span style="color: #27ae60; font-size: 12px;">→ ${e.transformedEquation}</span>`;
+    }
     li.innerHTML = `
-      <span class="item-text">${e.raw || '椭圆'}</span>
+      <span class="item-text">${display}</span>
       <button class="delete-btn" onclick="deleteEllipse(${idx})" title="删除椭圆">×</button>
     `;
+    if (selectedEllipseIdx === idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => {
+      if (selectedEllipseIdx === idx) {
+        selectedEllipseIdx = null;
+      } else {
+        selectedEllipseIdx = idx;
+        switchMode('drag');
+      }
+      redraw();
+    };
     funcList.appendChild(li);
   });
   
@@ -2568,26 +2977,66 @@ function renderSidebar() {
         <button class="delete-btn" onclick="deleteParabola(${idx})" title="删除抛物线">×</button>
       </div>
     `;
+    // 侧边栏高亮与点击选择/取消
+    if (selectedParabolaIdx === idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => {
+      if (selectedParabolaIdx === idx) {
+        selectedParabolaIdx = null;
+      } else {
+        selectedParabolaIdx = idx;
+        // 进入拖动模式，方便直接拖动
+        switchMode('drag');
+      }
+      redraw();
+    };
     funcList.appendChild(li);
   });
   
   // 双曲线
   hyperbolas.forEach((h, idx) => {
     let li = document.createElement('li');
+    let display = h.raw || '双曲线';
+    if (h.isDragged && h.transformedEquation) {
+      display += `<br><span style="color: #27ae60; font-size: 12px;">→ ${h.transformedEquation}</span>`;
+    }
     li.innerHTML = `
-      <span class="item-text">${h.raw || '双曲线'}</span>
+      <span class="item-text">${display}</span>
       <button class="delete-btn" onclick="deleteHyperbola(${idx})" title="删除双曲线">×</button>
     `;
+    if (selectedHyperbolaIdx === idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => {
+      if (selectedHyperbolaIdx === idx) {
+        selectedHyperbolaIdx = null;
+      } else {
+        selectedHyperbolaIdx = idx;
+        switchMode('drag');
+      }
+      redraw();
+    };
     funcList.appendChild(li);
   });
   
   // 极坐标
   polars.forEach((p, idx) => {
     let li = document.createElement('li');
+    let display = p.raw || '极坐标';
+    if (p.isDragged && p.transformedEquation) {
+      display += `<br><span style="color: #27ae60; font-size: 12px;">→ ${p.transformedEquation}</span>`;
+    }
     li.innerHTML = `
-      <span class="item-text">${p.raw || '极坐标'}</span>
+      <span class="item-text">${display}</span>
       <button class="delete-btn" onclick="deletePolar(${idx})" title="删除极坐标曲线">×</button>
     `;
+    if (selectedPolarIdx === idx) li.classList.add('selected');
+    li.querySelector('.item-text').onclick = () => {
+      if (selectedPolarIdx === idx) {
+        selectedPolarIdx = null;
+      } else {
+        selectedPolarIdx = idx;
+        switchMode('drag');
+      }
+      redraw();
+    };
     funcList.appendChild(li);
   });
 }
@@ -2671,6 +3120,51 @@ fullscreenBtn.onclick = function() {
   }
 };
 
+// 导出图片按钮
+const exportBtn = document.getElementById('export-image-btn');
+exportBtn.onclick = function exportCanvasAsImage() {
+  const canvasEl = document.getElementById('canvas');
+  if (!canvasEl) return;
+  const bgMode = (document.getElementById('export-bg-select')||{}).value || 'white';
+
+  // 合成导出画布
+  const w = canvasEl.width;
+  const h = canvasEl.height;
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const octx = off.getContext('2d');
+  if (bgMode === 'white') {
+    octx.save();
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0,0,w,h);
+    octx.restore();
+  }
+  octx.drawImage(canvasEl, 0, 0);
+
+  const filename = `graph-${new Date().toISOString().replace(/[:.]/g,'-')}.png`;
+  if (off.toBlob) {
+    off.toBlob(function(blob){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    });
+  } else {
+    // 兼容旧浏览器
+    const dataURL = off.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+};
+
 document.addEventListener('fullscreenchange', function() {
   if(document.fullscreenElement) {
     fullscreenBtn.innerText = '⛶';
@@ -2696,6 +3190,31 @@ document.getElementById('reset-view-btn').onclick = function() {
   scale = 40;
   redraw();
 };
+
+// 移动端菜单控制
+function toggleMobileMenu() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.mobile-overlay');
+  
+  sidebar.classList.toggle('show');
+  overlay.classList.toggle('show');
+}
+
+function hideMobileMenu() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.mobile-overlay');
+  
+  sidebar.classList.remove('show');
+  overlay.classList.remove('show');
+}
+
+// 阻止触摸滚动穿透
+document.addEventListener('touchmove', function(e) {
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar.classList.contains('show') && !sidebar.contains(e.target)) {
+    e.preventDefault();
+  }
+}, {passive: false});
 </script>
 </body>
 </html>
